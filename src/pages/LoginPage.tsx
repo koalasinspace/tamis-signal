@@ -30,9 +30,12 @@ export default function LoginPage() {
       <div className="bg-slate-900/80 backdrop-blur-md border border-purple-500/30 p-8 rounded-3xl w-full max-w-lg shadow-2xl relative z-10">
         <div className="text-center mb-6">
           <h1 className="text-3xl font-serif text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-indigo-300">
-            Tami's App
+            Tami's Signal
           </h1>
           <p className="text-slate-400 text-xs uppercase tracking-widest mt-2">
+            Welcome to Tami's Signal
+          </p>
+          <p className="text-slate-500 text-[10px] uppercase tracking-widest mt-1">
             Log in
           </p>
         </div>

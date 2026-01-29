@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import {
   Moon,
+  Radio,
   Sun,
   Star,
   User,
@@ -296,7 +297,7 @@ function Dashboard() {
   const handleShareDailyTruth = async () => {
     const message = userData?.dailyTruth?.message;
     if (!message) return;
-    const text = `"${message}"\n— Read by Tami's App`;
+    const text = `"${message}"\n— Read by Tami's Signal`;
     try {
       if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({ title: "Daily Truth", text });
@@ -390,7 +391,7 @@ function Dashboard() {
         />
       )}
       <div className={`md:hidden flex items-center justify-between p-4 bg-slate-900/80 backdrop-blur border-b ${theme.borderLight} sticky top-0 z-40`}>
-        <h1 className={`font-serif text-xl ${theme.text}`}>Tami&apos;s App</h1>
+        <h1 className={`font-serif text-xl ${theme.text}`}>Tami&apos;s Signal</h1>
         <div className={`text-xs font-mono ${theme.textMuted}`}>
           Path {userData?.destinyNumber} • {userData?.zodiacSign}
         </div>
@@ -398,7 +399,7 @@ function Dashboard() {
 
       <nav className={`fixed md:left-0 md:top-0 md:h-full md:w-20 md:flex-col bottom-0 w-full h-16 bg-slate-900 border-t md:border-t-0 md:border-r ${theme.borderLight} flex items-center justify-around md:justify-start md:pt-8 z-50`}>
         <div className={`hidden md:block mb-8 ${theme.accent} animate-pulse`}>
-          <Moon size={32} />
+          <Radio size={32} />
         </div>
         <NavButton
           active={activeTab === "daily"}
@@ -986,7 +987,7 @@ function Dashboard() {
                   disabled={!!userData?.pushNotificationsEnabled}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium text-white ${theme.bg} ${theme.bgHover} disabled:opacity-50 disabled:cursor-default`}
                 >
-                  {userData?.pushNotificationsEnabled ? "Enabled" : "Enable Cosmic Notifications"}
+                  {userData?.pushNotificationsEnabled ? "Enabled" : "Enable Tami's Signal"}
                 </button>
               </div>
               <button
