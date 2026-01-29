@@ -12,11 +12,16 @@ export const oracleGenerate = onCall(
     memory: "256MiB",
   },
   async (req) => {
+    // #region agent log
+    console.log("[oracleGenerate] Function entry point reached");
+    // #endregion
+    
     try {
       // #region agent log
       console.log("[oracleGenerate] Function called", { 
         hasAuth: !!req.auth?.uid, 
-        promptLength: (req.data as OracleGenerateInput)?.prompt?.length ?? 0 
+        promptLength: (req.data as OracleGenerateInput)?.prompt?.length ?? 0,
+        dataKeys: req.data ? Object.keys(req.data) : []
       });
       // #endregion
       
@@ -50,19 +55,31 @@ export const oracleGenerate = onCall(
       console.log("[oracleGenerate] Getting auth client", { url: url.substring(0, 80) + "..." });
       // #endregion
       
-      const auth = new GoogleAuth({
-        scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-      });
-      const client = await auth.getClient();
-      const tokenResponse = await client.getAccessToken();
-      const accessToken = tokenResponse?.token;
-      
-      // #region agent log
-      console.log("[oracleGenerate] Access token", { 
-        hasToken: !!accessToken, 
-        tokenLength: accessToken?.length ?? 0 
-      });
-      // #endregion
+      let accessToken: string | null | undefined;
+      try {
+        const auth = new GoogleAuth({
+          scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+        });
+        const client = await auth.getClient();
+        const tokenResponse = await client.getAccessToken();
+        accessToken = tokenResponse?.token;
+        
+        // #region agent log
+        console.log("[oracleGenerate] Access token", { 
+          hasToken: !!accessToken, 
+          tokenLength: accessToken?.length ?? 0 
+        });
+        // #endregion
+      } catch (authError: any) {
+        // #region agent log
+        console.error("[oracleGenerate] Auth error", {
+          errorMessage: authError?.message,
+          errorCode: authError?.code,
+          stack: authError?.stack?.substring(0, 300)
+        });
+        // #endregion
+        throw new HttpsError("internal", `Failed to obtain access token: ${authError?.message ?? String(authError)}`);
+      }
       
       if (!accessToken) {
         throw new HttpsError("internal", "Failed to obtain access token.");
@@ -83,14 +100,26 @@ export const oracleGenerate = onCall(
       });
       // #endregion
       
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
+      let resp: Response;
+      try {
+        resp = await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+      } catch (fetchError: any) {
+        // #region agent log
+        console.error("[oracleGenerate] Fetch error", {
+          errorMessage: fetchError?.message,
+          errorCode: fetchError?.code,
+          name: fetchError?.name
+        });
+        // #endregion
+        throw new HttpsError("internal", `Failed to call Vertex AI: ${fetchError?.message ?? String(fetchError)}`);
+      }
 
       // #region agent log
       console.log("[oracleGenerate] Vertex AI response", { 

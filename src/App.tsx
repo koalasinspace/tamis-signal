@@ -149,7 +149,8 @@ INSTRUCTIONS: Connect their specific pillars to the current date. Give them ONE 
     console.error("[generateDailyTruth] Error", {
       errorMessage: error?.message,
       errorCode: error?.code,
-      errorDetails: error?.details
+      errorDetails: error?.details,
+      fullError: error
     });
     // #endregion
     // Leave existing dailyTruth or empty; could set a fallback message
@@ -313,11 +314,13 @@ function Dashboard() {
       console.error("[handleGuidanceRequest] Error", {
         errorMessage: error?.message,
         errorCode: error?.code,
-        errorDetails: error?.details
+        errorDetails: error?.details,
+        fullError: error
       });
       // #endregion
+      const errorMsg = error?.message || error?.code || "Unknown error";
       setGuidanceResponse(
-        "The connection to the ether is weak. Check your internet."
+        `The connection to the ether is weak: ${errorMsg}. Check your internet or try again later.`
       );
     } finally {
       setIsGenerating(false);
