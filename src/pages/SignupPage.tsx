@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import AddToHomeScreenPrompt from "../components/AddToHomeScreenPrompt";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
@@ -79,8 +78,6 @@ export default function SignupPage() {
             {loading ? "Creating account…" : "Sign up"}
           </button>
         </form>
-
-        <AddToHomeScreenPrompt />
 
         <p className="mt-4 text-center text-sm text-slate-400">
           Already have an account?{" "}

@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import AddToHomeScreenPrompt from "../components/AddToHomeScreenPrompt";
 
 export default function VerifyEmailPage() {
   const { currentUser, resendVerification, logOut } = useAuth();
@@ -48,8 +47,6 @@ export default function VerifyEmailPage() {
             Sign out
           </button>
         </div>
-
-        <AddToHomeScreenPrompt title="Add Tami’s Signal to Home Screen" />
       </div>
     </div>
   );
