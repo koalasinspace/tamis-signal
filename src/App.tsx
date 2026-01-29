@@ -24,6 +24,7 @@ import {
   Bell,
   BellOff,
   BookOpen,
+  Library,
   Fingerprint,
 } from "lucide-react";
 import { deleteUser } from "firebase/auth";
@@ -50,7 +51,7 @@ import {
   getCelticTreeIcon,
   getMoonPhaseIcon,
 } from "./lib/profileIcons";
-import { getGrimoireEntry, ESOTERIC_DATA } from "./esotericData";
+import { getGrimoireEntry, ESOTERIC_DATA, GRIMOIRE_DATA } from "./esotericData";
 import { getPillarIcon, getAttributeSymbol, type PillarType } from "./SoulprintIcons";
 import { generateGrimoireHTML } from "./GrimoireGenerator";
 
@@ -181,7 +182,7 @@ function Dashboard() {
   const navigate = useNavigate();
   const { currentUser, userData, setUserData, logOut } = useAuth();
   const [activeTab, setActiveTab] = useState<
-    "daily" | "tarot" | "profile" | "guidance" | "journal" | "soulprint" | "dev"
+    "daily" | "tarot" | "profile" | "guidance" | "journal" | "soulprint" | "dev" | "grimoire"
   >("daily");
   const [guidanceQuery, setGuidanceQuery] = useState("");
   const [guidanceResponse, setGuidanceResponse] = useState<string | null>(null);
@@ -201,10 +202,33 @@ function Dashboard() {
   const [showUpsellCard, setShowUpsellCard] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteMessage, setInviteMessage] = useState("");
+  const [grimoireCategory, setGrimoireCategory] = useState<string>(
+    Object.keys(GRIMOIRE_DATA)[0] ?? "Zodiac Signs"
+  );
+  const [grimoireSearch, setGrimoireSearch] = useState("");
+  const [grimoireFocus, setGrimoireFocus] = useState<{ category: string; name: string } | null>(null);
   const isGrimoireModalOpen = selectedAttribute !== null;
 
   const theme = getThemeColor(userData?.favoriteColor ?? "purple");
   const role = userData?.role ?? "user";
+
+  const makeGrimoireId = (category: string, name: string) =>
+    `grimoire-${(category + "-" + name).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
+  const openGrimoire = (category: string, name: string) => {
+    setGrimoireCategory(category);
+    setGrimoireSearch(name);
+    setGrimoireFocus({ category, name });
+    setActiveTab("grimoire");
+  };
+
+  useEffect(() => {
+    if (activeTab !== "grimoire" || !grimoireFocus) return;
+    const id = makeGrimoireId(grimoireFocus.category, grimoireFocus.name);
+    requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [activeTab, grimoireFocus]);
 
   useEffect(() => {
     __agentLog({
@@ -491,6 +515,12 @@ function Dashboard() {
           label="Journal"
         />
         <NavButton
+          active={activeTab === "grimoire"}
+          onClick={() => setActiveTab("grimoire")}
+          icon={<Library size={24} />}
+          label="Grimoire"
+        />
+        <NavButton
           active={activeTab === "soulprint"}
           onClick={() => setActiveTab("soulprint")}
           icon={<Fingerprint size={24} />}
@@ -553,8 +583,67 @@ function Dashboard() {
                     "{userData?.dailyTruth?.message ?? ""}"
                   </p>
                 )}
-                <div className="mt-6 pt-4 border-t border-slate-800 text-xs text-slate-500 italic">
-                  Influenced by your connection to {userData?.favoriteColor}.
+                <div className="mt-6 pt-4 border-t border-slate-800">
+                  <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">
+                    Soulprint Signature (data used)
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {userData?.zodiacSign && (
+                      <button
+                        type="button"
+                        onClick={() => openGrimoire("Zodiac Signs", userData.zodiacSign)}
+                        className={`px-2 py-1 rounded-full border ${theme.borderLight} bg-slate-900/50 hover:bg-slate-800/60 transition-colors text-xs flex items-center gap-1`}
+                        title="Zodiac Sign"
+                      >
+                        <span className={theme.accent}>{getAttributeSymbol("zodiac", userData.zodiacSign)}</span>
+                        <span className="text-slate-300">{userData.zodiacSign}</span>
+                      </button>
+                    )}
+                    {userData?.destinyNumber != null && userData.destinyNumber > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => openGrimoire("Numerology", String(userData.destinyNumber))}
+                        className={`px-2 py-1 rounded-full border ${theme.borderLight} bg-slate-900/50 hover:bg-slate-800/60 transition-colors text-xs flex items-center gap-1`}
+                        title="Destiny Number"
+                      >
+                        <span className={theme.accent}>#{userData.destinyNumber}</span>
+                        <span className="text-slate-300">Destiny</span>
+                      </button>
+                    )}
+                    {userData?.birthday && (
+                      <button
+                        type="button"
+                        onClick={() => openGrimoire("Planetary Rulers", userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday))}
+                        className={`px-2 py-1 rounded-full border ${theme.borderLight} bg-slate-900/50 hover:bg-slate-800/60 transition-colors text-xs flex items-center gap-1`}
+                        title="Planetary Ruler"
+                      >
+                        <span className={theme.accent}>{getAttributeSymbol("planetaryRuler", userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday))}</span>
+                        <span className="text-slate-300">{userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday)}</span>
+                      </button>
+                    )}
+                    {userData?.birthday && (
+                      <button
+                        type="button"
+                        onClick={() => openGrimoire("Moon Phases", userData.moonPhase ?? getMoonPhase(userData.birthday))}
+                        className={`px-2 py-1 rounded-full border ${theme.borderLight} bg-slate-900/50 hover:bg-slate-800/60 transition-colors text-xs flex items-center gap-1`}
+                        title="Moon Phase"
+                      >
+                        <span className={theme.accent}>{getAttributeSymbol("moonPhase", userData.moonPhase ?? getMoonPhase(userData.birthday))}</span>
+                        <span className="text-slate-300">{userData.moonPhase ?? getMoonPhase(userData.birthday)}</span>
+                      </button>
+                    )}
+                    {userData?.favoriteColor && (
+                      <button
+                        type="button"
+                        onClick={() => openGrimoire("Power Colors", userData.favoriteColor.charAt(0).toUpperCase() + userData.favoriteColor.slice(1))}
+                        className={`px-2 py-1 rounded-full border ${theme.borderLight} bg-slate-900/50 hover:bg-slate-800/60 transition-colors text-xs flex items-center gap-2`}
+                        title="Power Color"
+                      >
+                        <span className="inline-block w-3 h-3 rounded-full border border-slate-700" style={{ backgroundColor: userData.favoriteColor }} />
+                        <span className="text-slate-300">{userData.favoriteColor}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -730,6 +819,79 @@ function Dashboard() {
                   );
                 })
               )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "grimoire" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <header className="mb-6">
+              <h2 className="text-3xl font-serif text-white mb-2">Grimoire</h2>
+              <p className="text-slate-500 text-sm">
+                Ancient reference. Search a term, or tap a category.
+              </p>
+            </header>
+
+            <div className="mb-4 flex flex-wrap gap-2">
+              {Object.keys(GRIMOIRE_DATA).map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    setGrimoireCategory(cat);
+                    setGrimoireSearch("");
+                    setGrimoireFocus(null);
+                  }}
+                  className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
+                    grimoireCategory === cat
+                      ? `${theme.bg} text-white border-transparent`
+                      : `bg-slate-900/50 text-slate-300 ${theme.borderLight} hover:bg-slate-800/60`
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            <div className={`mb-4 p-2 rounded-2xl border ${theme.borderLight} bg-slate-900/50`}>
+              <input
+                value={grimoireSearch}
+                onChange={(e) => setGrimoireSearch(e.target.value)}
+                placeholder="Search definitions…"
+                className="w-full bg-transparent p-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-3">
+              {(GRIMOIRE_DATA[grimoireCategory] ?? [])
+                .filter((item) => {
+                  const q = grimoireSearch.trim().toLowerCase();
+                  if (!q) return true;
+                  return (
+                    item.name.toLowerCase().includes(q) ||
+                    item.meaning.toLowerCase().includes(q)
+                  );
+                })
+                .map((item) => {
+                  const id = makeGrimoireId(grimoireCategory, item.name);
+                  const isFocused =
+                    grimoireFocus?.category === grimoireCategory &&
+                    grimoireFocus?.name.toLowerCase() === item.name.toLowerCase();
+                  return (
+                    <div
+                      key={id}
+                      id={id}
+                      className={`p-5 rounded-2xl border bg-slate-900/80 ${
+                        isFocused ? theme.border : theme.borderLight
+                      }`}
+                    >
+                      <h3 className={`font-serif text-lg ${theme.text}`}>{item.name}</h3>
+                      <p className="text-slate-300 text-sm leading-relaxed mt-2">
+                        {item.meaning}
+                      </p>
+                    </div>
+                  );
+                })}
             </div>
           </div>
         )}

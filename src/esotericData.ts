@@ -1,6 +1,9 @@
 /** Grimoire: static definitions for esoteric pillars. Look up by key. */
 export type GrimoireEntry = { subtitle?: string; description: string };
 
+export type GrimoireCard = { name: string; meaning: string };
+export type GrimoireData = Record<string, GrimoireCard[]>;
+
 export const ESOTERIC_DATA: {
   zodiac: Record<string, GrimoireEntry>;
   numerology: Record<string, GrimoireEntry>;
@@ -131,3 +134,124 @@ export function getGrimoireEntry(
   if (!normalized) return undefined;
   return map[normalized] ?? map[normalized.replace(/^The\s+/i, "")];
 }
+
+function mapEntryMapToCards(map: Record<string, GrimoireEntry>): GrimoireCard[] {
+  return Object.entries(map).map(([name, v]) => ({
+    name,
+    meaning: [v.subtitle, v.description].filter(Boolean).join(" — "),
+  }));
+}
+
+/**
+ * GRIMOIRE_DATA: category-based reference dictionary for the Grimoire tab.
+ * UI-friendly (arrays of cards) while ESOTERIC_DATA remains key-based for lookups.
+ */
+export const GRIMOIRE_DATA: GrimoireData = {
+  "Zodiac Signs": mapEntryMapToCards(ESOTERIC_DATA.zodiac),
+  "Numerology": mapEntryMapToCards(ESOTERIC_DATA.numerology),
+  "Tarot Archetypes": mapEntryMapToCards(ESOTERIC_DATA.tarot),
+  "Planetary Rulers": mapEntryMapToCards(ESOTERIC_DATA.planetaryRuler),
+  "Moon Phases": mapEntryMapToCards(ESOTERIC_DATA.moonPhase),
+  "Elements": [
+    {
+      name: "Fire",
+      meaning:
+        getGrimoireEntry("chineseElement", "Fire")?.description ??
+        "Fire — passion, transformation, the spark that consumes and reveals.",
+    },
+    {
+      name: "Water",
+      meaning:
+        getGrimoireEntry("chineseElement", "Water")?.description ??
+        "Water — emotion, intuition, flow, and the depth beneath the surface.",
+    },
+    {
+      name: "Air",
+      meaning:
+        "Air — thought, breath, communication, and the invisible currents that move everything.",
+    },
+    {
+      name: "Earth",
+      meaning:
+        getGrimoireEntry("chineseElement", "Earth")?.description ??
+        "Earth — stability, grounding, the body, and the slow work of becoming.",
+    },
+    {
+      name: "Metal",
+      meaning:
+        getGrimoireEntry("chineseElement", "Metal")?.description ??
+        "Metal — clarity, precision, boundaries, and the blade that cuts truth from noise.",
+    },
+    {
+      name: "Wood",
+      meaning:
+        getGrimoireEntry("chineseElement", "Wood")?.description ??
+        "Wood — growth, expansion, roots and branches, the patient push toward light.",
+    },
+  ],
+  "Celtic Trees": mapEntryMapToCards(ESOTERIC_DATA.celticTree),
+  // Extra reference layer for the Soulprint Signature color swatch.
+  "Power Colors": [
+    {
+      name: "Red",
+      meaning:
+        "Red — blood memory, courage, ignition. It teaches action and sacred anger.",
+    },
+    {
+      name: "Orange",
+      meaning:
+        "Orange — creation, appetite, pleasure. It teaches momentum and embodied joy.",
+    },
+    {
+      name: "Yellow",
+      meaning:
+        "Yellow — clarity, confidence, solar will. It teaches truth without apology.",
+    },
+    {
+      name: "Green",
+      meaning:
+        "Green — heart medicine, renewal, growth. It teaches repair and trust.",
+    },
+    {
+      name: "Blue",
+      meaning:
+        "Blue — voice, calm, honesty. It teaches clean communication.",
+    },
+    {
+      name: "Indigo",
+      meaning:
+        "Indigo — intuition, pattern-seeing, inner sight. It teaches discernment.",
+    },
+    {
+      name: "Purple",
+      meaning:
+        "Purple — mysticism, power, ritual. It teaches transmutation.",
+    },
+    {
+      name: "Violet",
+      meaning:
+        "Violet — crown fire, spiritual refinement. It teaches devotion.",
+    },
+    {
+      name: "Pink",
+      meaning:
+        "Pink — softness with teeth, self-love, tenderness. It teaches boundaries through care.",
+    },
+    {
+      name: "Teal",
+      meaning:
+        "Teal — healing, balance, emotional intelligence. It teaches steady restoration.",
+    },
+    {
+      name: "Cyan",
+      meaning:
+        "Cyan — freshness, openness, clean starts. It teaches release.",
+    },
+    {
+      name: "Emerald",
+      meaning:
+        "Emerald — sovereignty of the heart, deep renewal. It teaches rooted love.",
+    },
+  ],
+  "Chinese Zodiac": mapEntryMapToCards(ESOTERIC_DATA.chineseZodiac),
+};
