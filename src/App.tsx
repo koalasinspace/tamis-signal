@@ -1695,6 +1695,16 @@ const NavButton = ({
 // --- ROUTING & REDIRECTS ---
 export default function App() {
   const { currentUser, userData, loading } = useAuth();
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+
+  // Set a timeout to prevent infinite loading if Firestore fails
+  useEffect(() => {
+    if (currentUser && !userData && !loading) {
+      const timer = setTimeout(() => setLoadingTimeout(true), 3000);
+      return () => clearTimeout(timer);
+    }
+    if (userData) setLoadingTimeout(false);
+  }, [currentUser, userData, loading]);
 
   if (loading) {
     return (
@@ -1705,6 +1715,16 @@ export default function App() {
   }
 
   const isVerified = currentUser?.emailVerified ?? false;
+
+  // Wait for userData to load (but not forever - timeout after 3s)
+  // Only wait if user is logged in and verified
+  if (currentUser && isVerified && !userData && !loadingTimeout) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-purple-400">
+        Loading Soul Data…
+      </div>
+    );
+  }
   
   const soulprintComplete =
     userData?.soulprintComplete ??
