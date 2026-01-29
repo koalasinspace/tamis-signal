@@ -15,6 +15,10 @@ import {
   Trees,
 } from "lucide-react";
 
+// NOTE: Vercel/CI can end up with duplicate lucide-react type identities.
+// Loosen the icon typing to avoid "Type 'LucideIcon' is not assignable to type 'LucideIcon'".
+type IconType = any;
+
 export type PillarType =
   | "destinyNumber"
   | "lifePath"
@@ -26,7 +30,7 @@ export type PillarType =
   | "chineseElement"
   | "celticTree";
 
-type LucideIcon = React.ComponentType<{ size?: number; className?: string }>;
+type LucideIcon = IconType;
 
 const PILLAR_ICONS: Record<PillarType, LucideIcon> = {
   destinyNumber: Hash,
@@ -93,7 +97,7 @@ const ELEMENT_SYMBOLS: Record<string, string> = {
 const CELTIC_SYMBOL = "🌳";
 
 /** Returns the Lucide icon component for a pillar type. */
-export function getPillarIcon(pillar: PillarType): LucideIcon {
+export function getPillarIcon(pillar: PillarType): IconType {
   return PILLAR_ICONS[pillar] ?? Star;
 }
 

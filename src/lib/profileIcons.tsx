@@ -22,7 +22,16 @@ import {
   Hash,
 } from "lucide-react";
 
-type LucideIcon = React.ComponentType<{ size?: number; className?: string }>;
+// NOTE: Vercel/CI can end up with duplicate lucide-react type identities.
+// Loosen the icon typing to avoid "Type 'LucideIcon' is not assignable to type 'LucideIcon'".
+type IconType = any;
+
+// Kept for compatibility with older call sites/types.
+export interface PillarVisuals {
+  icon: IconType;
+}
+
+type LucideIcon = IconType;
 
 const ZODIAC_ICONS: Record<string, LucideIcon> = {
   Aries: Flame,
@@ -91,22 +100,22 @@ const MOON_PHASE_ICONS: Record<string, LucideIcon> = {
   "Waning Crescent": Moon,
 };
 
-export function getZodiacIcon(sign: string): LucideIcon {
+export function getZodiacIcon(sign: string): IconType {
   return ZODIAC_ICONS[sign] ?? Sparkles;
 }
 
-export function getPlanetIcon(planet: string): LucideIcon {
+export function getPlanetIcon(planet: string): IconType {
   return PLANET_ICONS[planet] ?? Globe;
 }
 
-export function getChineseZodiacIcon(animal: string): LucideIcon {
+export function getChineseZodiacIcon(animal: string): IconType {
   return CHINESE_ZODIAC_ICONS[animal] ?? Circle;
 }
 
-export function getCelticTreeIcon(tree: string): LucideIcon {
+export function getCelticTreeIcon(tree: string): IconType {
   return CELTIC_TREE_ICONS[tree] ?? TreePine;
 }
 
-export function getMoonPhaseIcon(phase: string): LucideIcon {
+export function getMoonPhaseIcon(phase: string): IconType {
   return MOON_PHASE_ICONS[phase] ?? Moon;
 }
