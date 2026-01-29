@@ -84,7 +84,7 @@ exports.oracleGenerate = (0, https_1.onCall)({
         const body = {
             contents: [{ role: "user", parts: [{ text: trimmedPrompt }] }],
             generationConfig: {
-                temperature: 0.9,
+                temperature: 0.6,
                 maxOutputTokens,
             },
         };
