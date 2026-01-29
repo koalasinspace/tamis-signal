@@ -38,7 +38,7 @@ exports.oracleGenerate = (0, https_1.onCall)({
             throw new https_1.HttpsError("failed-precondition", "Missing GCLOUD_PROJECT.");
         }
         const location = process.env.VERTEX_LOCATION ?? "us-central1";
-        const model = process.env.GEMINI_MODEL ?? "gemini-1.5-flash-002";
+        const model = process.env.GEMINI_MODEL ?? "gemini-1.5-flash-001";
         const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:generateContent`;
         // #region agent log
         console.log("[oracleGenerate] Getting auth client", { url: url.substring(0, 80) + "..." });
