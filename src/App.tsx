@@ -13,6 +13,8 @@ import {
   Trash2,
   X,
   Lock,
+  Terminal,
+  Crown,
   Pencil,
   Hash,
   Palette,
@@ -155,7 +157,7 @@ function Dashboard() {
   const navigate = useNavigate();
   const { currentUser, userData, setUserData, logOut } = useAuth();
   const [activeTab, setActiveTab] = useState<
-    "daily" | "tarot" | "profile" | "guidance" | "journal" | "soulprint"
+    "daily" | "tarot" | "profile" | "guidance" | "journal" | "soulprint" | "dev"
   >("daily");
   const [guidanceQuery, setGuidanceQuery] = useState("");
   const [guidanceResponse, setGuidanceResponse] = useState<string | null>(null);
@@ -173,9 +175,12 @@ function Dashboard() {
   } | null>(null);
   const [journalEntryText, setJournalEntryText] = useState("");
   const [showUpsellCard, setShowUpsellCard] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteMessage, setInviteMessage] = useState("");
   const isGrimoireModalOpen = selectedAttribute !== null;
 
   const theme = getThemeColor(userData?.favoriteColor ?? "purple");
+  const role = userData?.role ?? "user";
 
   useEffect(() => {
     const hasCompleteSoulprint =
@@ -189,6 +194,28 @@ function Dashboard() {
       setIsGeneratingDailyTruth(false);
     });
   }, [currentUser?.uid, userData]);
+
+  useEffect(() => {
+    if (activeTab === "dev" && role !== "admin") setActiveTab("daily");
+  }, [activeTab, role]);
+
+  const handleSendInvite = () => {
+    const email = inviteEmail.trim();
+    const message = inviteMessage.trim();
+    if (!email) {
+      alert("Please enter an email address.");
+      return;
+    }
+    // No backend mailer yet: generate a mailto and let the admin send it.
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const subject = "Join Tami's Signal";
+    const body = `${message || "You're invited to join Tami's Signal."}\n\n${origin}`;
+    // Runtime evidence for now.
+    console.log("Invite Generated", { email, subject, body, origin });
+    const mailto = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailto;
+    alert("Invite Generated");
+  };
 
   const handleGuidanceRequest = async () => {
     if (!guidanceQuery.trim() || !userData) return;
@@ -431,6 +458,14 @@ function Dashboard() {
           icon={<Fingerprint size={24} />}
           label="Soulprint"
         />
+        {role === "admin" && (
+          <NavButton
+            active={activeTab === "dev"}
+            onClick={() => setActiveTab("dev")}
+            icon={<Terminal size={24} />}
+            label="Dev"
+          />
+        )}
         <NavButton
           active={activeTab === "profile"}
           onClick={() => setActiveTab("profile")}
@@ -661,6 +696,44 @@ function Dashboard() {
           </div>
         )}
 
+        {activeTab === "dev" && role === "admin" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <header className="mb-6">
+              <h2 className="text-3xl font-serif text-white mb-2">
+                Dev Dashboard
+              </h2>
+              <p className="text-slate-500 text-sm">
+                User Management
+              </p>
+            </header>
+            <div className={`p-6 rounded-2xl border ${theme.borderLight} bg-slate-900/50`}>
+              <h3 className={`text-sm font-serif font-medium ${theme.text} mb-4`}>Invite User</h3>
+              <div className="space-y-3">
+                <input
+                  type="email"
+                  placeholder="Email Address"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-slate-600"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                />
+                <textarea
+                  placeholder="Custom Invite Message"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-slate-600 min-h-[120px] resize-y"
+                  value={inviteMessage}
+                  onChange={(e) => setInviteMessage(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={handleSendInvite}
+                  className={`w-full px-4 py-2 rounded-lg text-sm font-medium text-white ${theme.bg} ${theme.bgHover}`}
+                >
+                  Send Invite
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === "soulprint" && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <header className="mb-6">
@@ -858,9 +931,17 @@ function Dashboard() {
                   {userData?.name?.charAt(0)}
                 </div>
                 <div>
-                  <h3 className="text-white font-bold text-lg">
-                    {userData?.name}
-                  </h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-white font-bold text-lg">
+                      {userData?.name}
+                    </h3>
+                    {role === "owner" && (
+                      <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full border ${theme.borderLight} ${theme.text}`}>
+                        <Crown size={14} className={theme.accent} />
+                        THE BOSS
+                      </span>
+                    )}
+                  </div>
                   <p className="text-slate-400 text-sm">
                     Joined {new Date(userData?.joinDate || "").toLocaleDateString()}
                   </p>

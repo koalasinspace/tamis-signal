@@ -8,6 +8,7 @@ export interface JournalEntry {
 export interface UserProfile {
   name: string;
   email: string;
+  role: "user" | "admin" | "owner"; // 'user' is default, 'admin' is Boss Dev, 'owner' is Boss Tami
   soulprintComplete?: boolean;
   birthday: string;
   birthTime: string;
@@ -40,6 +41,7 @@ export function createMinimalProfile(
   return {
     name,
     email,
+    role: "user",
     soulprintComplete: false,
     birthday: "",
     birthTime: "",

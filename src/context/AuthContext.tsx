@@ -12,6 +12,13 @@ import { auth, db } from "../lib/firebase";
 import type { UserProfile } from "../lib/types";
 import { createMinimalProfile } from "../lib/types";
 
+function determineRole(email: string | null | undefined): UserProfile["role"] {
+  const normalized = (email || "").trim().toLowerCase();
+  if (normalized === "tyler@dierks.email") return "admin";
+  if (normalized === "tami@hawleymail.com") return "owner";
+  return "user";
+}
+
 type AuthContextValue = {
   currentUser: FirebaseUser | null;
   userData: UserProfile | null;
@@ -36,7 +43,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (user) {
         const docRef = doc(db, "users", user.uid);
         const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) setUserData(docSnap.data() as UserProfile);
+        if (docSnap.exists()) {
+          const data = docSnap.data() as UserProfile;
+          const desiredRole = determineRole(user.email);
+          const currentRole = (data as any).role as UserProfile["role"] | undefined;
+          if (!currentRole || currentRole !== desiredRole) {
+            await setDoc(doc(db, "users", user.uid), { role: desiredRole }, { merge: true });
+            setUserData({ ...data, role: desiredRole });
+          } else {
+            setUserData(data);
+          }
+        }
         else setUserData(null);
       } else {
         setUserData(null);
@@ -50,13 +67,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     await sendEmailVerification(user);
-    const minimal = createMinimalProfile(name, email);
+    const minimal = { ...createMinimalProfile(name, email), role: determineRole(email) };
     await setDoc(doc(db, "users", user.uid), minimal);
     setUserData(minimal);
   };
 
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const role = determineRole(userCredential.user.email ?? email);
+    await setDoc(doc(db, "users", userCredential.user.uid), { role, email }, { merge: true });
   };
 
   const logOut = () => signOut(auth);
