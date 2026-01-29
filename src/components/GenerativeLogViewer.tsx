@@ -105,12 +105,6 @@ export default function GenerativeLogViewer() {
         </div>
       </div>
 
-      {/* Debug info */}
-      <div className="mb-3 p-2 rounded bg-[#1a1a2e]/40 border border-[#533483]/20 text-xs font-mono text-[#e2e8f0]/60">
-        Component loaded. Listening at: artifacts/tamis-signal-v2/public/data/generativeLogs
-        <br />
-        Status: {error ? `ERROR: ${error}` : `${logs.length} raw logs loaded`}
-      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
