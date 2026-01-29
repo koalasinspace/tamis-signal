@@ -1516,6 +1516,19 @@ export default function App() {
   }
 
   const isVerified = currentUser?.emailVerified ?? false;
+  
+  // Wait for userData to be fully loaded before making routing decisions
+  // If user is logged in but userData is null, they're a new user (should go to soulprint)
+  // If userData exists but doesn't have soulprint fields yet, wait for full data
+  // Check if userData has the essential fields (not just role)
+  const hasEssentialFields = userData && (
+    userData.soulprintComplete !== undefined ||
+    userData.destinyNumber !== undefined ||
+    userData.birthday !== undefined ||
+    userData.name !== undefined
+  );
+  const userDataIncomplete = currentUser && userData && !hasEssentialFields;
+  
   // #region agent log
   const soulprintDebug = {
     soulprintCompleteFlag: userData?.soulprintComplete,
@@ -1523,10 +1536,22 @@ export default function App() {
     hasDestinyNumber: userData?.destinyNumber != null,
     destinyNumberGT0: userData?.destinyNumber != null && userData.destinyNumber > 0,
     userId: currentUser?.uid?.substring(0,8) || 'none',
-    hasUserData: !!userData
+    hasUserData: !!userData,
+    userDataKeys: userData ? Object.keys(userData) : [],
+    userDataIncomplete
   };
   fetch('http://127.0.0.1:7242/ingest/e6210c2a-f7f1-4292-a851-ae35264b57ce',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:1519',message:'Soulprint completion check',data:soulprintDebug,timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
   // #endregion
+  
+  // If userData is incomplete, show loading to wait for full data
+  if (userDataIncomplete) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-purple-400">
+        Loading Soul Data…
+      </div>
+    );
+  }
+  
   const soulprintComplete =
     userData?.soulprintComplete ??
     (userData?.destinyNumber != null && userData.destinyNumber > 0);
