@@ -16,6 +16,9 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signIn(email, password);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/e6210c2a-f7f1-4292-a851-ae35264b57ce',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LoginPage.tsx:18',message:'Login successful, navigating to /',data:{email:email.substring(0,10)+'...'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       navigate("/", { replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message.replace(/^Firebase:\s*/i, "").trim() : "Login failed");

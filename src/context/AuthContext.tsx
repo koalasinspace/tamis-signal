@@ -53,6 +53,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const data = docSnap.data() as UserProfile;
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/e6210c2a-f7f1-4292-a851-ae35264b57ce',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:54',message:'User data loaded',data:{soulprintComplete:data.soulprintComplete,destinyNumber:data.destinyNumber,hasDestinyNumber:data.destinyNumber!=null,userId:user.uid.substring(0,8),dataKeys:Object.keys(data)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+            // #endregion
             const desiredRole = determineRole(user.email);
             const currentRole = (data as any).role as UserProfile["role"] | undefined;
             if (!currentRole || currentRole !== desiredRole) {

@@ -1516,9 +1516,23 @@ export default function App() {
   }
 
   const isVerified = currentUser?.emailVerified ?? false;
+  // #region agent log
+  const soulprintDebug = {
+    soulprintCompleteFlag: userData?.soulprintComplete,
+    destinyNumber: userData?.destinyNumber,
+    hasDestinyNumber: userData?.destinyNumber != null,
+    destinyNumberGT0: userData?.destinyNumber != null && userData.destinyNumber > 0,
+    userId: currentUser?.uid?.substring(0,8) || 'none',
+    hasUserData: !!userData
+  };
+  fetch('http://127.0.0.1:7242/ingest/e6210c2a-f7f1-4292-a851-ae35264b57ce',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:1519',message:'Soulprint completion check',data:soulprintDebug,timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
   const soulprintComplete =
     userData?.soulprintComplete ??
     (userData?.destinyNumber != null && userData.destinyNumber > 0);
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/e6210c2a-f7f1-4292-a851-ae35264b57ce',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:1523',message:'Computed soulprintComplete',data:{soulprintComplete,isVerified,currentPath:window.location.pathname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
 
   return (
     <Routes>
@@ -1571,7 +1585,12 @@ export default function App() {
           ) : !isVerified ? (
             <Navigate to="/verify-email" replace />
           ) : !soulprintComplete ? (
-            <Navigate to="/soulprint" replace />
+            (() => {
+              // #region agent log
+              fetch('http://127.0.0.1:7242/ingest/e6210c2a-f7f1-4292-a851-ae35264b57ce',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:1573',message:'Redirecting to /soulprint',data:{soulprintComplete,isVerified,hasUser:!!currentUser,userDataKeys:userData?Object.keys(userData):[]},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+              // #endregion
+              return <Navigate to="/soulprint" replace />;
+            })()
           ) : (
             <Dashboard />
           )
