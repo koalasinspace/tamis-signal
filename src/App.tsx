@@ -1,0 +1,1263 @@
+import React, { useState, useEffect } from "react";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import {
+  Moon,
+  Sun,
+  Star,
+  User,
+  LogOut,
+  Sparkles,
+  MessageCircle,
+  Download,
+  Trash2,
+  X,
+  Lock,
+  Pencil,
+  Hash,
+  Palette,
+  MapPin,
+  Layers,
+  Share2,
+  Bell,
+  BellOff,
+  BookOpen,
+  Fingerprint,
+} from "lucide-react";
+import { deleteUser } from "firebase/auth";
+import { doc, deleteDoc, setDoc } from "firebase/firestore";
+import { auth, db, GEMINI_API_KEY } from "./lib/firebase";
+import { useAuth } from "./context/AuthContext";
+import SignupPage from "./pages/SignupPage";
+import LoginPage from "./pages/LoginPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
+import SoulprintPage from "./pages/SoulprintPage";
+import {
+  getPlanetaryRuler,
+  getChineseZodiac,
+  getChineseElement,
+  calculateLifePath,
+  getMoonPhase,
+  getCelticTree,
+} from "./lib/calculators";
+import type { UserProfile, JournalEntry } from "./lib/types";
+import {
+  getZodiacIcon,
+  getPlanetIcon,
+  getChineseZodiacIcon,
+  getCelticTreeIcon,
+  getMoonPhaseIcon,
+} from "./lib/profileIcons";
+import { getGrimoireEntry, ESOTERIC_DATA } from "./esotericData";
+import { getPillarIcon, getAttributeSymbol, type PillarType } from "./SoulprintIcons";
+import { generateGrimoireHTML } from "./GrimoireGenerator";
+
+const todayDateString = () =>
+  new Date().toISOString().slice(0, 10);
+
+/** Maps color names to Tailwind class strings for atmospheric personalization. Default: purple/indigo. */
+function getThemeColor(colorName: string): {
+  text: string;
+  textMuted: string;
+  border: string;
+  borderLight: string;
+  bg: string;
+  bgHover: string;
+  shadow: string;
+  accent: string;
+} {
+  const normalized = (colorName || "").toLowerCase().trim();
+  const map: Record<string, { text: string; textMuted: string; border: string; borderLight: string; bg: string; bgHover: string; shadow: string; accent: string }> = {
+    red: { text: "text-red-200", textMuted: "text-red-400", border: "border-red-500/30", borderLight: "border-red-500/20", bg: "bg-red-600", bgHover: "hover:bg-red-500", shadow: "shadow-red-500/50", accent: "text-red-400" },
+    blue: { text: "text-blue-200", textMuted: "text-blue-400", border: "border-blue-500/30", borderLight: "border-blue-500/20", bg: "bg-blue-600", bgHover: "hover:bg-blue-500", shadow: "shadow-blue-500/50", accent: "text-blue-400" },
+    green: { text: "text-green-200", textMuted: "text-green-400", border: "border-green-500/30", borderLight: "border-green-500/20", bg: "bg-green-600", bgHover: "hover:bg-green-500", shadow: "shadow-green-500/50", accent: "text-green-400" },
+    yellow: { text: "text-amber-200", textMuted: "text-amber-400", border: "border-amber-500/30", borderLight: "border-amber-500/20", bg: "bg-amber-600", bgHover: "hover:bg-amber-500", shadow: "shadow-amber-500/50", accent: "text-amber-400" },
+    orange: { text: "text-orange-200", textMuted: "text-orange-400", border: "border-orange-500/30", borderLight: "border-orange-500/20", bg: "bg-orange-600", bgHover: "hover:bg-orange-500", shadow: "shadow-orange-500/50", accent: "text-orange-400" },
+    purple: { text: "text-purple-200", textMuted: "text-purple-400", border: "border-purple-500/30", borderLight: "border-purple-500/20", bg: "bg-purple-600", bgHover: "hover:bg-purple-500", shadow: "shadow-purple-500/50", accent: "text-purple-400" },
+    violet: { text: "text-violet-200", textMuted: "text-violet-400", border: "border-violet-500/30", borderLight: "border-violet-500/20", bg: "bg-violet-600", bgHover: "hover:bg-violet-500", shadow: "shadow-violet-500/50", accent: "text-violet-400" },
+    pink: { text: "text-pink-200", textMuted: "text-pink-400", border: "border-pink-500/30", borderLight: "border-pink-500/20", bg: "bg-pink-600", bgHover: "hover:bg-pink-500", shadow: "shadow-pink-500/50", accent: "text-pink-400" },
+    indigo: { text: "text-indigo-200", textMuted: "text-indigo-400", border: "border-indigo-500/30", borderLight: "border-indigo-500/20", bg: "bg-indigo-600", bgHover: "hover:bg-indigo-500", shadow: "shadow-indigo-500/50", accent: "text-indigo-400" },
+    teal: { text: "text-teal-200", textMuted: "text-teal-400", border: "border-teal-500/30", borderLight: "border-teal-500/20", bg: "bg-teal-600", bgHover: "hover:bg-teal-500", shadow: "shadow-teal-500/50", accent: "text-teal-400" },
+    cyan: { text: "text-cyan-200", textMuted: "text-cyan-400", border: "border-cyan-500/30", borderLight: "border-cyan-500/20", bg: "bg-cyan-600", bgHover: "hover:bg-cyan-500", shadow: "shadow-cyan-500/50", accent: "text-cyan-400" },
+    emerald: { text: "text-emerald-200", textMuted: "text-emerald-400", border: "border-emerald-500/30", borderLight: "border-emerald-500/20", bg: "bg-emerald-600", bgHover: "hover:bg-emerald-500", shadow: "shadow-emerald-500/50", accent: "text-emerald-400" },
+  };
+  return map[normalized] ?? map["purple"];
+}
+
+const HIGH_ANXIETY_KEYWORDS = [
+  "divorce", "lost job", "scared", "heartbreak", "alone", "anxious", "panic", "suicide", "end my life",
+  "hopeless", "cant go on", "lost", "crisis", "emergency", "breaking down", "falling apart",
+];
+
+async function generateDailyTruth(
+  user: UserProfile,
+  uid: string,
+  setUserData: (d: UserProfile | null) => void
+): Promise<void> {
+  const today = todayDateString();
+  if (user.dailyTruth?.date === today) return;
+
+  const planetaryRuler = user.planetaryRuler ?? (user.birthday ? getPlanetaryRuler(user.birthday) : "");
+  const chineseZodiac = user.chineseZodiac ?? (user.birthday ? getChineseZodiac(user.birthday) : "");
+  const chineseElement = user.chineseElement ?? (user.birthday ? getChineseElement(user.birthday) : "");
+  const lifePath = user.lifePathNumber ?? (user.birthday ? calculateLifePath(user.birthday) : 0);
+  const moonPhase = user.moonPhase ?? (user.birthday ? getMoonPhase(user.birthday) : "");
+  const celticTree = user.celticTree ?? (user.birthday ? getCelticTree(user.birthday) : "");
+
+  const soulBlueprint = `
+- Zodiac: ${user.zodiacSign}
+- Destiny Number: ${user.destinyNumber}
+- Tarot Archetype: ${user.tarotArchetype}
+- Power Color: ${user.favoriteColor}
+- Birthplace: ${user.birthPlace}
+- Life Path: ${lifePath}
+- Planetary Ruler: ${planetaryRuler}
+- Chinese Zodiac: ${chineseElement} ${chineseZodiac}
+- Moon Phase: ${moonPhase}
+- Celtic Tree: ${celticTree}
+`.trim();
+
+  const prompt = `You are a mystical, tough-love oracle. Generate a Daily Truth for ${user.name}.
+
+THEIR SOULPRINT:
+${soulBlueprint}
+
+DATE: ${today}
+
+INSTRUCTIONS: Connect their specific pillars to the current date. Give them ONE hard truth they need to hear today to align with their destiny. Be direct, short (under 50 words), and visceral. No fluff.`;
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      }
+    );
+    const data = await response.json();
+    const message =
+      data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
+      "The void is silent today.";
+    const updated: UserProfile = {
+      ...user,
+      dailyTruth: { date: today, message },
+    };
+    await setDoc(doc(db, "users", uid), { dailyTruth: { date: today, message } }, { merge: true });
+    setUserData(updated);
+  } catch {
+    // Leave existing dailyTruth or empty; could set a fallback message
+  }
+}
+
+// --- DASHBOARD (main app when logged in + verified + soulprint complete) ---
+function Dashboard() {
+  const navigate = useNavigate();
+  const { currentUser, userData, setUserData, logOut } = useAuth();
+  const [activeTab, setActiveTab] = useState<
+    "daily" | "tarot" | "profile" | "guidance" | "journal" | "soulprint"
+  >("daily");
+  const [guidanceQuery, setGuidanceQuery] = useState("");
+  const [guidanceResponse, setGuidanceResponse] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingDailyTruth, setIsGeneratingDailyTruth] = useState(false);
+  const [cardsFlipped, setCardsFlipped] = useState<number[]>([]);
+  const [readingResult, setReadingResult] = useState<string | null>(null);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [selectedAttribute, setSelectedAttribute] = useState<{
+    type: keyof typeof ESOTERIC_DATA;
+    key: string;
+    title: string;
+    subtitle?: string;
+  } | null>(null);
+  const [journalEntryText, setJournalEntryText] = useState("");
+  const [showUpsellCard, setShowUpsellCard] = useState(false);
+  const isGrimoireModalOpen = selectedAttribute !== null;
+
+  const theme = getThemeColor(userData?.favoriteColor ?? "purple");
+
+  useEffect(() => {
+    const hasCompleteSoulprint =
+      userData?.soulprintComplete ??
+      (userData?.destinyNumber != null && userData.destinyNumber > 0);
+    if (!currentUser || !userData || !hasCompleteSoulprint) return;
+    const today = todayDateString();
+    if (userData.dailyTruth?.date === today) return;
+    setIsGeneratingDailyTruth(true);
+    generateDailyTruth(userData, currentUser.uid, setUserData).finally(() => {
+      setIsGeneratingDailyTruth(false);
+    });
+  }, [currentUser?.uid, userData]);
+
+  const handleGuidanceRequest = async () => {
+    if (!guidanceQuery.trim() || !userData) return;
+    setShowUpsellCard(false);
+    setIsGenerating(true);
+    const queryLower = guidanceQuery.toLowerCase();
+    const hasAnxietyKeyword = HIGH_ANXIETY_KEYWORDS.some((kw) => queryLower.includes(kw));
+
+    const allEntries = userData.journalEntries ?? [];
+    const lastThree = allEntries.slice(-3);
+    const recentShadowBlock =
+      lastThree.length > 0
+        ? `RECENT SHADOW ENERGY (their last ${lastThree.length} journal reflection(s)—use to inform your reading, never cite literally):\n${lastThree
+            .map(
+              (e) =>
+                `[${e.date}] Prompt: ${e.prompt}\nReflection: ${e.entry}`
+            )
+            .join("\n\n")}`
+        : "";
+
+    const prompt = `
+      You are a mystical, tough-love oracle named Tami.
+      
+      USER SOULPRINT:
+      - Name: ${userData.name}
+      - Zodiac: ${userData.zodiacSign}
+      - Birthplace: ${userData.birthPlace} (Use the 'spirit of this place' or geomancy in your metaphor)
+      - Numerology Destiny Number: ${userData.destinyNumber} (This defines their life path)
+      - Tarot Archetype: ${userData.tarotArchetype} (This is their guiding energy card)
+      - Power Color: ${userData.favoriteColor} (Use this color's chakra/elemental meaning)
+      
+      DEEP SOUL CONTEXT:
+      - Life Path: ${userData.lifePathNumber ?? ""} (The karmic road they must walk)
+      - Planetary Ruler: ${userData.planetaryRuler ?? ""} (The planet that rules their daily energy)
+      - Chinese Zodiac: ${userData.chineseElement ?? ""} ${userData.chineseZodiac ?? ""} (Their inner animal and elemental texture)
+      - Moon Phase: ${userData.moonPhase ?? ""} (Their emotional operating system)
+      - Celtic Tree: ${userData.celticTree ?? ""} (Their rooted nature)
+      ${recentShadowBlock ? `\n${recentShadowBlock}\n` : ""}
+      USER QUESTION: "${guidanceQuery}"
+      
+      INSTRUCTION ON TONE: You have access to their recent thoughts (Shadow Energy). Use this to inform your advice, but NEVER say "You wrote in your journal" or "I read that you...". Instead, refer to it as "energy" or "shadows". Example: "The shadows whisper of a lingering attachment..." rather than "You wrote that you miss David." Make it feel psychic, not data-driven.
+      
+      INSTRUCTIONS:
+      Craft a unique, personalized response. 
+      Combine their Zodiac traits with their Tarot Archetype. 
+      Use the meaning of their Power Color to set the tone.
+      Weave in their Life Path, Planetary Ruler, Chinese Zodiac/Element, Moon Phase, and Celtic Tree when it deepens the message.
+      Be direct. Do not sugarcoat. Give "tough love" motivation.
+      Keep it under 100 words.
+    `;
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        }
+      );
+      const data = await response.json();
+      const text =
+        data.candidates?.[0]?.content?.parts?.[0]?.text ||
+        "The void is silent.";
+      setGuidanceResponse(text);
+      if (hasAnxietyKeyword) setShowUpsellCard(true);
+    } catch {
+      setGuidanceResponse(
+        "The connection to the ether is weak. Check your internet."
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSaveJournalEntry = async () => {
+    if (!currentUser || !userData || !journalEntryText.trim()) return;
+    const today = todayDateString();
+    const prompt = userData?.dailyTruth?.message
+      ? userData.dailyTruth.message
+      : "Reflect on today's energy.";
+    const newEntry: JournalEntry = {
+      id: Date.now().toString(),
+      date: today,
+      prompt,
+      entry: journalEntryText.trim(),
+    };
+    const existing = userData.journalEntries ?? [];
+    const updated = { ...userData, journalEntries: [...existing, newEntry] };
+    await setDoc(doc(db, "users", currentUser.uid), { journalEntries: updated.journalEntries }, { merge: true });
+    setUserData(updated);
+    setJournalEntryText("");
+  };
+
+  const handleDeleteJournalEntry = async (idOrIndex: string | number) => {
+    if (!currentUser || !userData) return;
+    const existing = userData.journalEntries ?? [];
+    const next =
+      typeof idOrIndex === "string"
+        ? existing.filter((e) => e.id !== idOrIndex)
+        : existing.filter((_, i) => i !== idOrIndex);
+    const updated = { ...userData, journalEntries: next };
+    await setDoc(doc(db, "users", currentUser.uid), { journalEntries: next }, { merge: true });
+    setUserData(updated);
+  };
+
+  const handleShareDailyTruth = async () => {
+    const message = userData?.dailyTruth?.message;
+    if (!message) return;
+    const text = `"${message}"\n— Read by Tami's App`;
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title: "Daily Truth", text });
+      } else {
+        await navigator.clipboard?.writeText(text);
+        alert("Copied to clipboard.");
+      }
+    } catch (err) {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        alert("Copied to clipboard.");
+      }
+    }
+  };
+
+  const handleToggleNotifications = async () => {
+    if (!currentUser || !userData) return;
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        const updated = { ...userData, pushNotificationsEnabled: true };
+        await setDoc(doc(db, "users", currentUser.uid), { pushNotificationsEnabled: true }, { merge: true });
+        setUserData(updated);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!currentUser) return;
+    if (
+      confirm(
+        "Are you sure? This action is permanent and complies with CT 'Right to Delete' laws."
+      )
+    ) {
+      try {
+        await deleteDoc(doc(db, "users", currentUser.uid));
+        await deleteUser(currentUser);
+      } catch (err: unknown) {
+        alert("Error deleting account: " + (err instanceof Error ? err.message : ""));
+      }
+    }
+  };
+
+  const handleCardFlip = (index: number) => {
+    if (cardsFlipped.includes(index)) return;
+    const newFlipped = [...cardsFlipped, index];
+    setCardsFlipped(newFlipped);
+    if (newFlipped.length === 3) {
+      setTimeout(() => {
+        setReadingResult(
+          `The cards align with your archetype, The ${userData?.tarotArchetype}. They reveal: 1. The blockage, 2. The action, 3. The outcome. Look inward.`
+        );
+      }, 1000);
+    }
+  };
+
+  const downloadData = () => {
+    if (!userData) return;
+    const exportData = { ...userData, journalEntries: userData.journalEntries ?? [] };
+    const dataStr =
+      "data:text/json;charset=utf-8," +
+      encodeURIComponent(JSON.stringify(exportData, null, 2));
+    const a = document.createElement("a");
+    a.setAttribute("href", dataStr);
+    a.setAttribute("download", "my_soul_data.json");
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  const handlePublish = () => {
+    if (!userData) return;
+    const html = generateGrimoireHTML(userData);
+    const w = window.open("", "_blank");
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      setTimeout(() => { w.print(); }, 300);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans pb-20 md:pb-0 md:pl-20">
+      {isGrimoireModalOpen && selectedAttribute && (
+        <GrimoireModal
+          selectedAttribute={selectedAttribute}
+          onClose={() => setSelectedAttribute(null)}
+        />
+      )}
+      <div className={`md:hidden flex items-center justify-between p-4 bg-slate-900/80 backdrop-blur border-b ${theme.borderLight} sticky top-0 z-40`}>
+        <h1 className={`font-serif text-xl ${theme.text}`}>Tami&apos;s App</h1>
+        <div className={`text-xs font-mono ${theme.textMuted}`}>
+          Path {userData?.destinyNumber} • {userData?.zodiacSign}
+        </div>
+      </div>
+
+      <nav className={`fixed md:left-0 md:top-0 md:h-full md:w-20 md:flex-col bottom-0 w-full h-16 bg-slate-900 border-t md:border-t-0 md:border-r ${theme.borderLight} flex items-center justify-around md:justify-start md:pt-8 z-50`}>
+        <div className={`hidden md:block mb-8 ${theme.accent} animate-pulse`}>
+          <Moon size={32} />
+        </div>
+        <NavButton
+          active={activeTab === "daily"}
+          onClick={() => setActiveTab("daily")}
+          icon={<Sparkles size={24} />}
+          label="Daily"
+        />
+        <NavButton
+          active={activeTab === "guidance"}
+          onClick={() => setActiveTab("guidance")}
+          icon={<MessageCircle size={24} />}
+          label="Guide"
+        />
+        <NavButton
+          active={activeTab === "tarot"}
+          onClick={() => setActiveTab("tarot")}
+          icon={<Lock size={24} />}
+          label="Tarot"
+        />
+        <NavButton
+          active={activeTab === "journal"}
+          onClick={() => setActiveTab("journal")}
+          icon={<BookOpen size={24} />}
+          label="Journal"
+        />
+        <NavButton
+          active={activeTab === "soulprint"}
+          onClick={() => setActiveTab("soulprint")}
+          icon={<Fingerprint size={24} />}
+          label="Soulprint"
+        />
+        <NavButton
+          active={activeTab === "profile"}
+          onClick={() => setActiveTab("profile")}
+          icon={<User size={24} />}
+          label="Profile"
+        />
+      </nav>
+
+      <main className="max-w-2xl mx-auto p-6 pt-8">
+        {activeTab === "daily" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <header className="mb-6">
+              <h2 className="text-3xl font-serif text-white mb-2">
+                Daily Truth
+              </h2>
+              <div className="flex gap-2 text-xs">
+                <span className={`bg-slate-800/60 px-2 py-1 rounded border ${theme.borderLight}`}>
+                  <span className={theme.accent}>Destiny #{userData?.destinyNumber}</span>
+                </span>
+                <span className="bg-slate-800/60 px-2 py-1 rounded border border-slate-600">
+                  <span className="text-slate-400">Archetype: {userData?.tarotArchetype}</span>
+                </span>
+              </div>
+            </header>
+            <div className={`bg-gradient-to-br from-slate-900 to-slate-950 border ${theme.border} p-8 rounded-2xl shadow-2xl relative overflow-hidden`}>
+              <div className={`absolute top-0 right-0 p-4 opacity-5 ${theme.accent}`}>
+                <Sun size={120} />
+              </div>
+              <div className="relative z-10">
+                <div className={`flex items-center justify-between gap-2 mb-4 ${theme.textMuted} text-xs font-bold uppercase tracking-widest`}>
+                  <span className="flex items-center gap-2"><Star size={12} /> {new Date().toLocaleDateString()}</span>
+                  <button
+                    type="button"
+                    onClick={handleShareDailyTruth}
+                    className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
+                    title="Share"
+                  >
+                    <Share2 size={18} />
+                  </button>
+                </div>
+                {isGeneratingDailyTruth ? (
+                  <p className={`text-lg ${theme.textMuted} italic`}>
+                    Regenerating…
+                  </p>
+                ) : (
+                  <p className="text-xl md:text-2xl font-serif leading-relaxed text-slate-50">
+                    "{userData?.dailyTruth?.message ?? ""}"
+                  </p>
+                )}
+                <div className="mt-6 pt-4 border-t border-slate-800 text-xs text-slate-500 italic">
+                  Influenced by your connection to {userData?.favoriteColor}.
+                </div>
+              </div>
+            </div>
+            <div className={`mt-6 p-6 rounded-2xl border ${theme.borderLight} bg-slate-900/50`}>
+              <h3 className={`text-sm font-serif font-medium ${theme.text} mb-2`}>Shadow Journal</h3>
+              {userData?.dailyTruth?.message ? (
+                <blockquote className={`mb-4 pl-4 border-l-2 ${theme.borderLight} italic text-slate-400 text-sm leading-relaxed`}>
+                  &ldquo;{userData.dailyTruth.message}&rdquo;
+                </blockquote>
+              ) : (
+                <p className="text-slate-500 text-xs mb-4">Reflect on today&apos;s energy.</p>
+              )}
+              <textarea
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-slate-600 min-h-[100px] resize-y"
+                placeholder="What does this stir in you?"
+                value={journalEntryText}
+                onChange={(e) => setJournalEntryText(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={handleSaveJournalEntry}
+                disabled={!journalEntryText.trim()}
+                className={`mt-3 px-4 py-2 rounded-lg text-sm font-medium text-white ${theme.bg} ${theme.bgHover} disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                Save Entry
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "guidance" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <header className="mb-8">
+              <h2 className="text-3xl font-serif text-white mb-2">
+                Ask the Void
+              </h2>
+              <p className="text-slate-400 text-sm">
+                Your Soulprint is active. Answers will be tailored to your
+                Numerology and Place of Birth.
+              </p>
+            </header>
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 mb-6 focus-within:border-purple-500/50 transition-colors">
+              <textarea
+                className="w-full bg-transparent p-4 text-lg text-white focus:outline-none min-h-[120px] resize-none placeholder-slate-600"
+                placeholder="What is holding me back?"
+                value={guidanceQuery}
+                onChange={(e) => setGuidanceQuery(e.target.value)}
+              />
+              <div className="flex justify-end px-4 pb-2">
+                <button
+                  onClick={handleGuidanceRequest}
+                  disabled={isGenerating || !guidanceQuery}
+                  className={`px-6 py-2 rounded-lg font-medium transition-all ${
+                    isGenerating ? "bg-slate-800 text-slate-500" : `text-white ${theme.bg} ${theme.bgHover}`
+                  }`}
+                >
+                  {isGenerating ? "Consulting Soulprint…" : "Ask"}
+                </button>
+              </div>
+            </div>
+            {guidanceResponse && (
+              <div className="bg-indigo-950/30 border border-indigo-500/30 p-6 rounded-2xl animate-in zoom-in-95 duration-300">
+                <h3 className="text-indigo-200 font-serif text-lg mb-2 flex items-center gap-2">
+                  <Sparkles size={16} /> Guidance
+                </h3>
+                <p className="text-slate-300 leading-relaxed">
+                  {guidanceResponse}
+                </p>
+              </div>
+            )}
+            {showUpsellCard && (
+              <div className="mt-6 p-6 rounded-2xl border-2 border-amber-600/50 bg-amber-950/20 animate-in zoom-in-95 duration-300">
+                <p className="text-amber-200 font-medium mb-2">This is heavy energy. Don&apos;t navigate it alone.</p>
+                <p className="text-slate-400 text-sm mb-4">Book a 15-min emergency reading with a guide who can hold space for you.</p>
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-500 transition-colors"
+                >
+                  Book 15-min emergency reading (mock)
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "tarot" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <header className="mb-8">
+              <h2 className="text-3xl font-serif text-white mb-2">
+                Tarot Room
+              </h2>
+            </header>
+            <div className="grid grid-cols-3 gap-2 h-48 mb-6">
+              {[0, 1, 2].map((idx) => (
+                <div
+                  key={idx}
+                  onClick={() => handleCardFlip(idx)}
+                  className={`relative w-full h-full rounded-lg cursor-pointer bg-indigo-900 border border-indigo-500/30 flex items-center justify-center transition-all ${
+                    cardsFlipped.includes(idx)
+                      ? "bg-slate-100 border-white"
+                      : ""
+                  }`}
+                >
+                  {cardsFlipped.includes(idx) ? (
+                    <span className="text-black font-bold text-xs p-1 text-center">
+                      Card {idx + 1}
+                    </span>
+                  ) : (
+                    <Sparkles className="text-indigo-400/50" />
+                  )}
+                </div>
+              ))}
+            </div>
+            {readingResult && (
+              <div className="bg-slate-900 p-4 rounded-xl border border-purple-500/20 text-slate-300 text-sm">
+                {readingResult}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "journal" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <header className="mb-6 flex items-start justify-between flex-wrap gap-3">
+              <div>
+                <h2 className="text-3xl font-serif text-white mb-2">
+                  The Mirror
+                </h2>
+                <p className="text-slate-500 text-sm">
+                  Your Shadow Journal history. Reflect, then release.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handlePublish}
+                className={`px-4 py-2 rounded-xl border ${theme.borderLight} ${theme.bg} ${theme.text} text-sm font-medium hover:opacity-90 transition-opacity`}
+              >
+                Publish to Grimoire
+              </button>
+            </header>
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+              {((userData?.journalEntries ?? []).length === 0) ? (
+                <div className={`p-6 rounded-2xl border ${theme.borderLight} bg-slate-900/50 text-center text-slate-500 text-sm`}>
+                  No entries yet. Write from the Daily tab to fill the mirror.
+                </div>
+              ) : (
+                [...(userData?.journalEntries ?? [])].reverse().map((entry, idx) => {
+                  const list = userData?.journalEntries ?? [];
+                  const originalIndex = list.length - 1 - idx;
+                  const displayId = entry.id ?? `legacy-${originalIndex}`;
+                  const deleteKey = entry.id ?? originalIndex;
+                  return (
+                    <div
+                      key={displayId}
+                      className={`p-5 rounded-2xl border ${theme.borderLight} bg-slate-900/80 shadow-lg`}
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <time className="text-xs font-mono text-slate-500 uppercase tracking-wider">
+                          {entry.date}
+                        </time>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteJournalEntry(deleteKey)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-colors"
+                          title="Delete entry"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                      <p className="text-slate-400 text-xs italic mb-2">{entry.prompt}</p>
+                      <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">{entry.entry}</p>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "soulprint" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <header className="mb-6">
+              <h2 className="text-3xl font-serif text-white mb-2">
+                Soulprint
+              </h2>
+              <p className="text-slate-500 text-sm">
+                Your cosmic signature. Tap any card to open the Grimoire.
+              </p>
+            </header>
+            {/* Hero: Big Three — Sun Sign, Destiny Number, Tarot Archetype */}
+            <div className={`rounded-2xl border-2 p-6 mb-6 bg-gradient-to-br from-slate-900 to-slate-950 shadow-xl ${theme.border} ${theme.bg} bg-opacity-20`}>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <button
+                  type="button"
+                  onClick={() =>
+                    userData?.zodiacSign &&
+                    setSelectedAttribute({
+                      type: "zodiac",
+                      key: userData.zodiacSign,
+                      title: userData.zodiacSign,
+                    })
+                  }
+                  className="flex items-center gap-4 flex-1 min-w-0 hover:opacity-90 transition-opacity text-left"
+                >
+                  <span className={`text-4xl flex-shrink-0 ${theme.accent}`} aria-hidden>
+                    {getAttributeSymbol("zodiac", userData?.zodiacSign ?? "")}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                      Sun Sign
+                    </div>
+                    <div className={`text-xl font-serif font-medium ${theme.text}`}>
+                      {userData?.zodiacSign}
+                    </div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    userData?.destinyNumber != null &&
+                    setSelectedAttribute({
+                      type: "numerology",
+                      key: String(userData.destinyNumber),
+                      title: `Destiny Number ${userData.destinyNumber}`,
+                    })
+                  }
+                  className="flex items-center gap-4 flex-1 min-w-0 hover:opacity-90 transition-opacity text-left"
+                >
+                  <span className={`text-4xl flex-shrink-0 ${theme.accent}`} aria-hidden>
+                    #
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                      Destiny Number
+                    </div>
+                    <div className={`text-xl font-serif font-medium ${theme.text}`}>
+                      {userData?.destinyNumber}
+                    </div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    userData?.tarotArchetype &&
+                    setSelectedAttribute({
+                      type: "tarot",
+                      key: userData.tarotArchetype,
+                      title: userData.tarotArchetype,
+                    })
+                  }
+                  className="flex items-center gap-4 flex-1 min-w-0 hover:opacity-90 transition-opacity text-left"
+                >
+                  <span className="flex-shrink-0 flex items-center justify-center w-10 h-10">
+                    {React.createElement(getPillarIcon("tarot"), { size: 28, className: theme.accent })}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                      Tarot Archetype
+                    </div>
+                    <div className={`text-xl font-serif font-medium ${theme.text} truncate`}>
+                      {userData?.tarotArchetype}
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* 2x3 Grid: Life Path, Chinese Zodiac, Planetary Ruler, Moon Phase, Chinese Element, Celtic Tree */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {userData?.birthday && (
+                <>
+                  <SoulprintCard
+                    theme={theme}
+                    pillar="lifePath"
+                    label="Life Path"
+                    value={String(userData.lifePathNumber ?? calculateLifePath(userData.birthday))}
+                    symbol={String(userData.lifePathNumber ?? calculateLifePath(userData.birthday))}
+                    grimoire={{
+                      type: "numerology",
+                      key: String(userData.lifePathNumber ?? calculateLifePath(userData.birthday)),
+                      title: `Life Path ${userData.lifePathNumber ?? calculateLifePath(userData.birthday)}`,
+                    }}
+                    onGrimoireClick={setSelectedAttribute}
+                  />
+                  <SoulprintCard
+                    theme={theme}
+                    pillar="chineseZodiac"
+                    label="Chinese Zodiac"
+                    value={[userData.chineseElement ?? getChineseElement(userData.birthday), userData.chineseZodiac ?? getChineseZodiac(userData.birthday)].filter(Boolean).join(" ")}
+                    symbol=""
+                    grimoire={{
+                      type: "chineseZodiac",
+                      key: userData.chineseZodiac ?? getChineseZodiac(userData.birthday),
+                      title: userData.chineseZodiac ?? getChineseZodiac(userData.birthday),
+                      subtitle: (userData.chineseElement ?? getChineseElement(userData.birthday)) + " Element",
+                    }}
+                    onGrimoireClick={setSelectedAttribute}
+                  />
+                  <SoulprintCard
+                    theme={theme}
+                    pillar="planetaryRuler"
+                    label="Planetary Ruler"
+                    value={userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday)}
+                    symbol={getAttributeSymbol("planetaryRuler", userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday))}
+                    grimoire={{
+                      type: "planetaryRuler",
+                      key: userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday),
+                      title: userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday),
+                    }}
+                    onGrimoireClick={setSelectedAttribute}
+                  />
+                  <SoulprintCard
+                    theme={theme}
+                    pillar="moonPhase"
+                    label="Moon Phase"
+                    value={userData.moonPhase ?? getMoonPhase(userData.birthday)}
+                    symbol={getAttributeSymbol("moonPhase", userData.moonPhase ?? getMoonPhase(userData.birthday))}
+                    grimoire={{
+                      type: "moonPhase",
+                      key: userData.moonPhase ?? getMoonPhase(userData.birthday),
+                      title: userData.moonPhase ?? getMoonPhase(userData.birthday),
+                    }}
+                    onGrimoireClick={setSelectedAttribute}
+                  />
+                  <SoulprintCard
+                    theme={theme}
+                    pillar="chineseElement"
+                    label="Chinese Element"
+                    value={userData.chineseElement ?? getChineseElement(userData.birthday)}
+                    symbol={getAttributeSymbol("chineseElement", userData.chineseElement ?? getChineseElement(userData.birthday))}
+                    grimoire={{
+                      type: "chineseElement",
+                      key: userData.chineseElement ?? getChineseElement(userData.birthday),
+                      title: userData.chineseElement ?? getChineseElement(userData.birthday),
+                    }}
+                    onGrimoireClick={setSelectedAttribute}
+                  />
+                  <SoulprintCard
+                    theme={theme}
+                    pillar="celticTree"
+                    label="Celtic Tree"
+                    value={userData.celticTree ?? getCelticTree(userData.birthday)}
+                    symbol={getAttributeSymbol("celticTree", "")}
+                    grimoire={{
+                      type: "celticTree",
+                      key: userData.celticTree ?? getCelticTree(userData.birthday),
+                      title: userData.celticTree ?? getCelticTree(userData.birthday),
+                    }}
+                    onGrimoireClick={setSelectedAttribute}
+                  />
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "profile" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <header className="mb-6 flex items-center justify-between flex-wrap gap-3">
+              <h2 className="text-3xl font-serif text-white">
+                Soul Profile
+              </h2>
+              <button
+                onClick={() => navigate("/soulprint")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors ${theme.bg} ${theme.bgHover}`}
+              >
+                <Pencil size={16} />
+                Edit profile
+              </button>
+            </header>
+            <div className={`bg-slate-900/80 rounded-2xl p-6 mb-6 border ${theme.borderLight}`}>
+              <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-700">
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-serif text-white shadow-lg ${theme.bg} ${theme.shadow}`}>
+                  {userData?.name?.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="text-white font-bold text-lg">
+                    {userData?.name}
+                  </h3>
+                  <p className="text-slate-400 text-sm">
+                    Joined {new Date(userData?.joinDate || "").toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {userData?.zodiacSign && (
+                  <ProfilePillar
+                    label="Zodiac"
+                    value={userData.zodiacSign}
+                    Icon={getZodiacIcon(userData.zodiacSign)}
+                    grimoire={{ type: "zodiac", key: userData.zodiacSign, title: userData.zodiacSign }}
+                    onGrimoireClick={setSelectedAttribute}
+                  />
+                )}
+                {userData?.destinyNumber != null && userData.destinyNumber > 0 && (
+                  <ProfilePillar
+                    label="Destiny Number"
+                    value={String(userData.destinyNumber)}
+                    Icon={Hash}
+                    grimoire={{ type: "numerology", key: String(userData.destinyNumber), title: `Destiny Number ${userData.destinyNumber}` }}
+                    onGrimoireClick={setSelectedAttribute}
+                  />
+                )}
+                {userData?.tarotArchetype && (
+                  <ProfilePillar
+                    label="Tarot Archetype"
+                    value={userData.tarotArchetype}
+                    Icon={Layers}
+                    grimoire={{ type: "tarot", key: userData.tarotArchetype, title: userData.tarotArchetype }}
+                    onGrimoireClick={setSelectedAttribute}
+                  />
+                )}
+                {userData?.favoriteColor && (
+                  <ProfilePillar
+                    label="Power Color"
+                    value={userData.favoriteColor}
+                    Icon={Palette}
+                  />
+                )}
+                {userData?.birthPlace && (
+                  <ProfilePillar
+                    label="Birthplace Spirit"
+                    value={userData.birthPlace}
+                    Icon={MapPin}
+                    span={2}
+                  />
+                )}
+                {userData?.birthday && (
+                  <>
+                    <ProfilePillar
+                      label="Planetary Ruler"
+                      value={userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday)}
+                      Icon={getPlanetIcon(userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday))}
+                      grimoire={{
+                        type: "planetaryRuler",
+                        key: userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday),
+                        title: userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday),
+                      }}
+                      onGrimoireClick={setSelectedAttribute}
+                    />
+                    <ProfilePillar
+                      label="Chinese Zodiac"
+                      value={(() => {
+                        const el = userData.chineseElement ?? getChineseElement(userData.birthday);
+                        const an = userData.chineseZodiac ?? getChineseZodiac(userData.birthday);
+                        return [el, an].filter(Boolean).join(" ");
+                      })()}
+                      Icon={getChineseZodiacIcon(userData.chineseZodiac ?? getChineseZodiac(userData.birthday))}
+                      grimoire={{
+                        type: "chineseZodiac",
+                        key: userData.chineseZodiac ?? getChineseZodiac(userData.birthday),
+                        title: userData.chineseZodiac ?? getChineseZodiac(userData.birthday),
+                        subtitle: (userData.chineseElement ?? getChineseElement(userData.birthday)) + " Element",
+                      }}
+                      onGrimoireClick={setSelectedAttribute}
+                    />
+                    <ProfilePillar
+                      label="Life Path"
+                      value={String(userData.lifePathNumber ?? calculateLifePath(userData.birthday))}
+                      Icon={Hash}
+                      grimoire={{
+                        type: "numerology",
+                        key: String(userData.lifePathNumber ?? calculateLifePath(userData.birthday)),
+                        title: `Life Path ${userData.lifePathNumber ?? calculateLifePath(userData.birthday)}`,
+                      }}
+                      onGrimoireClick={setSelectedAttribute}
+                    />
+                    <ProfilePillar
+                      label="Moon Phase"
+                      value={userData.moonPhase ?? getMoonPhase(userData.birthday)}
+                      Icon={getMoonPhaseIcon(userData.moonPhase ?? getMoonPhase(userData.birthday))}
+                      grimoire={{
+                        type: "moonPhase",
+                        key: userData.moonPhase ?? getMoonPhase(userData.birthday),
+                        title: userData.moonPhase ?? getMoonPhase(userData.birthday),
+                      }}
+                      onGrimoireClick={setSelectedAttribute}
+                    />
+                    <ProfilePillar
+                      label="Celtic Tree"
+                      value={userData.celticTree ?? getCelticTree(userData.birthday)}
+                      Icon={getCelticTreeIcon(userData.celticTree ?? getCelticTree(userData.birthday))}
+                      grimoire={{
+                        type: "celticTree",
+                        key: userData.celticTree ?? getCelticTree(userData.birthday),
+                        title: userData.celticTree ?? getCelticTree(userData.birthday),
+                      }}
+                      onGrimoireClick={setSelectedAttribute}
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className={`flex items-center justify-between p-3 rounded-lg border ${theme.borderLight} bg-slate-900/50`}>
+                <div className="flex items-center gap-3 text-slate-300">
+                  {userData?.pushNotificationsEnabled ? <Bell size={18} className={theme.accent} /> : <BellOff size={18} />}
+                  <span>Tami&apos;s Signal</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleNotifications}
+                  disabled={!!userData?.pushNotificationsEnabled}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium text-white ${theme.bg} ${theme.bgHover} disabled:opacity-50 disabled:cursor-default`}
+                >
+                  {userData?.pushNotificationsEnabled ? "Enabled" : "Enable Cosmic Notifications"}
+                </button>
+              </div>
+              <button
+                onClick={downloadData}
+                className="w-full flex items-center justify-between p-3 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <div className="flex items-center gap-3 text-slate-300">
+                  <Download size={18} />
+                  <span>Download Data (JSON)</span>
+                </div>
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                className="w-full flex items-center justify-between p-3 bg-slate-900 border border-red-900/30 hover:bg-red-950/30 rounded-lg transition-colors"
+              >
+                <div className="flex items-center gap-3 text-red-400">
+                  <Trash2 size={18} />
+                  <span>Delete Account</span>
+                </div>
+              </button>
+              <button
+                onClick={() => logOut()}
+                className="w-full p-4 text-slate-500 hover:text-white flex justify-center items-center gap-2"
+              >
+                <LogOut size={18} /> Sign Out
+              </button>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function GrimoireModal({
+  selectedAttribute,
+  onClose,
+}: {
+  selectedAttribute: { type: keyof typeof ESOTERIC_DATA; key: string; title: string; subtitle?: string };
+  onClose: () => void;
+}) {
+  const entry = getGrimoireEntry(selectedAttribute.type, selectedAttribute.key);
+  const elementKey =
+    selectedAttribute.type === "chineseZodiac" && selectedAttribute.subtitle
+      ? selectedAttribute.subtitle.replace(/\s+Element$/i, "")
+      : null;
+  const elementEntry = elementKey ? getGrimoireEntry("chineseElement", elementKey) : undefined;
+  const subtitle = entry?.subtitle ?? selectedAttribute.subtitle;
+  const description = entry?.description ?? "No entry found in the grimoire for this path.";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="bg-slate-950 border-2 border-amber-900/50 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-hidden shadow-2xl shadow-amber-950/30">
+        <div className="border-b border-amber-800/40 bg-slate-900/90 px-6 py-4 flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-serif text-amber-100">{selectedAttribute.title}</h3>
+            {subtitle && (
+              <p className="text-sm text-amber-200/80 mt-0.5">{subtitle}</p>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-slate-700/80 text-slate-400 hover:text-white transition-colors"
+            aria-label="Close"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-6 overflow-y-auto max-h-[60vh] text-slate-300 text-sm leading-relaxed space-y-4">
+          <p>{description}</p>
+          {elementEntry?.description && (
+            <div className="pt-3 border-t border-slate-700">
+              <p className="text-xs font-medium uppercase tracking-wider text-amber-200/80 mb-1">
+                As {selectedAttribute.subtitle}
+              </p>
+              <p>{elementEntry.description}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SoulprintCard({
+  theme,
+  pillar,
+  label,
+  value,
+  symbol,
+  grimoire,
+  onGrimoireClick,
+}: {
+  theme: ReturnType<typeof getThemeColor>;
+  pillar: PillarType;
+  label: string;
+  value: string;
+  symbol: string;
+  grimoire: { type: keyof typeof ESOTERIC_DATA; key: string; title: string; subtitle?: string };
+  onGrimoireClick: (g: { type: keyof typeof ESOTERIC_DATA; key: string; title: string; subtitle?: string }) => void;
+}) {
+  const Icon = getPillarIcon(pillar);
+  return (
+    <button
+      type="button"
+      onClick={() => onGrimoireClick(grimoire)}
+      className={`flex flex-col items-center justify-center p-5 rounded-2xl border ${theme.borderLight} bg-slate-900/80 hover:bg-slate-800/80 transition-colors text-center min-h-[120px]`}
+    >
+      <div className={`flex items-center justify-center w-12 h-12 rounded-xl mb-2 ${theme.bg} ${theme.text} bg-opacity-30 border ${theme.borderLight}`}>
+        {symbol ? (
+          <span className={`text-4xl ${theme.accent}`} aria-hidden>{symbol}</span>
+        ) : (
+          <Icon size={24} className={theme.accent} />
+        )}
+      </div>
+      <div className="text-xs font-medium uppercase tracking-wider text-slate-500 mb-0.5">{label}</div>
+      <div className={`font-serif font-medium ${theme.text} truncate w-full`} title={value}>{value}</div>
+    </button>
+  );
+}
+
+function ProfilePillar({
+  label,
+  value,
+  Icon,
+  span = 1,
+  grimoire,
+  onGrimoireClick,
+}: {
+  label: string;
+  value: string;
+  Icon: React.ElementType;
+  span?: 1 | 2;
+  grimoire?: { type: keyof typeof ESOTERIC_DATA; key: string; title: string; subtitle?: string };
+  onGrimoireClick?: (g: { type: keyof typeof ESOTERIC_DATA; key: string; title: string; subtitle?: string }) => void;
+}) {
+  const content = (
+    <>
+      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-purple-900/40 border border-purple-500/20 flex items-center justify-center text-purple-300">
+        <Icon size={20} />
+      </div>
+      <div className="min-w-0 flex-1 text-left">
+        <div className="text-slate-500 text-xs font-medium uppercase tracking-wider mb-0.5">
+          {label}
+        </div>
+        <div className="text-purple-100 font-medium truncate" title={value}>
+          {value}
+        </div>
+      </div>
+    </>
+  );
+
+  const className = `flex items-start gap-3 p-4 bg-slate-950/80 rounded-xl border border-slate-700/80 hover:border-purple-500/30 transition-colors ${
+    span === 2 ? "col-span-2 sm:col-span-2" : ""
+  }`;
+
+  if (grimoire && onGrimoireClick) {
+    return (
+      <button
+        type="button"
+        onClick={() => onGrimoireClick(grimoire)}
+        className={className + " cursor-pointer w-full"}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
+}
+
+const NavButton = ({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) => (
+  <button
+    onClick={onClick}
+    className={`md:w-full md:px-0 md:py-4 md:hover:bg-purple-900/10 flex flex-col items-center gap-1 transition-colors ${
+      active ? "text-purple-400" : "text-slate-500 hover:text-slate-300"
+    }`}
+  >
+    {icon}
+    <span className="text-[10px] font-medium tracking-wide">{label}</span>
+    {active && (
+      <div className="md:absolute md:left-0 md:h-full md:w-1 md:bg-purple-500 hidden md:block" />
+    )}
+  </button>
+);
+
+// --- ROUTING & REDIRECTS ---
+export default function App() {
+  const { currentUser, userData, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-purple-400">
+        Loading Soul Data…
+      </div>
+    );
+  }
+
+  const isVerified = currentUser?.emailVerified ?? false;
+  const soulprintComplete =
+    userData?.soulprintComplete ??
+    (userData?.destinyNumber != null && userData.destinyNumber > 0);
+
+  return (
+    <Routes>
+      <Route path="/signup" element={<SignupPage />} />
+      <Route
+        path="/login"
+        element={
+          currentUser ? (
+            !isVerified ? (
+              <Navigate to="/verify-email" replace />
+            ) : soulprintComplete ? (
+              <Navigate to="/" replace />
+            ) : (
+              <Navigate to="/soulprint" replace />
+            )
+          ) : (
+            <LoginPage />
+          )
+        }
+      />
+      <Route
+        path="/verify-email"
+        element={
+          !currentUser ? (
+            <Navigate to="/login" replace />
+          ) : isVerified ? (
+            <Navigate to={soulprintComplete ? "/" : "/soulprint"} replace />
+          ) : (
+            <VerifyEmailPage />
+          )
+        }
+      />
+      <Route
+        path="/soulprint"
+        element={
+          !currentUser ? (
+            <Navigate to="/login" replace />
+          ) : !isVerified ? (
+            <Navigate to="/verify-email" replace />
+          ) : (
+            <SoulprintPage />
+          )
+        }
+      />
+      <Route
+        path="/"
+        element={
+          !currentUser ? (
+            <Navigate to="/login" replace />
+          ) : !isVerified ? (
+            <Navigate to="/verify-email" replace />
+          ) : !soulprintComplete ? (
+            <Navigate to="/soulprint" replace />
+          ) : (
+            <Dashboard />
+          )
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
