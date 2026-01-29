@@ -43,31 +43,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (user: FirebaseUser | null) => {
         setCurrentUser(user);
         if (user) {
-          const docRef = doc(db, "users", user.uid);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            const data = docSnap.data() as UserProfile;
-            const desiredRole = determineRole(user.email);
-            const currentRole = (data as any).role as UserProfile["role"] | undefined;
-            if (!currentRole || currentRole !== desiredRole) {
-              try {
-                await setDoc(doc(db, "users", user.uid), { role: desiredRole }, { merge: true });
-                setUserData({ ...data, role: desiredRole });
-              } catch (err: unknown) {
-                // fall back to whatever we have
+          try {
+            const docRef = doc(db, "users", user.uid);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+              const data = docSnap.data() as UserProfile;
+              const desiredRole = determineRole(user.email);
+              const currentRole = (data as any).role as UserProfile["role"] | undefined;
+              if (!currentRole || currentRole !== desiredRole) {
+                try {
+                  await setDoc(doc(db, "users", user.uid), { role: desiredRole }, { merge: true });
+                  setUserData({ ...data, role: desiredRole });
+                } catch (err: unknown) {
+                  // fall back to whatever we have
+                  setUserData(data);
+                }
+              } else {
                 setUserData(data);
               }
             } else {
-              setUserData(data);
+              setUserData(null);
             }
+          } catch (firestoreError) {
+            console.error("[AuthContext] Failed to load user data from Firestore", firestoreError);
+            // Set userData to null so routing can proceed (user will be sent to soulprint page)
+            setUserData(null);
           }
-          else setUserData(null);
         } else {
           setUserData(null);
         }
         setLoading(false);
       },
       (error: any) => {
+        console.error("[AuthContext] Auth state change error", error);
         setLoading(false);
       }
     );

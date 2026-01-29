@@ -1696,28 +1696,6 @@ export default function App() {
 
   const isVerified = currentUser?.emailVerified ?? false;
   
-  // Wait for userData to be fully loaded before making routing decisions
-  // If user is logged in but userData is null, wait for it to load
-  // If userData exists but doesn't have soulprint fields yet, wait for full data
-  // Check if userData has the essential fields (not just role)
-  const hasEssentialFields = userData && (
-    userData.soulprintComplete !== undefined ||
-    userData.destinyNumber !== undefined ||
-    userData.birthday !== undefined ||
-    userData.name !== undefined
-  );
-  // Show loading if: user is logged in and verified but userData hasn't loaded yet, OR userData exists but is incomplete
-  const userDataIncomplete = currentUser && isVerified && (!userData || (userData && !hasEssentialFields));
-  
-  // If userData is incomplete, show loading to wait for full data
-  if (userDataIncomplete) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-purple-400">
-        Loading Soul Data…
-      </div>
-    );
-  }
-  
   const soulprintComplete =
     userData?.soulprintComplete ??
     (userData?.destinyNumber != null && userData.destinyNumber > 0);
