@@ -97,8 +97,9 @@ export const oracleGenerate = onCall(
       }
 
       // Determine token limit based on request type
-      // Both Daily Truth and Guidance use 1024 tokens for longer, more detailed responses
-      const maxOutputTokens = 1024;
+      // gemini-2.5-flash uses "thinking" tokens (~1000) that count against maxOutputTokens
+      // So we need 4096+ to get decent output length (thinking + actual response)
+      const maxOutputTokens = 4096;
       
       const body = {
         contents: [{ role: "user", parts: [{ text: trimmedPrompt }] }],
