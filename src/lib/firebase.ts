@@ -4,12 +4,12 @@ import { getFunctions } from "firebase/functions";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyA7EZB6IAX6a2JOoxB6dxBC6MQIXbAV5Pw",
-  authDomain: "tamis-app-beta.firebaseapp.com",
-  projectId: "tamis-app-beta",
-  storageBucket: "tamis-app-beta.firebasestorage.app",
-  messagingSenderId: "887201501944",
-  appId: "1:887201501944:web:0ac229b93e0841ed8ea10d",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 export const app = initializeApp(firebaseConfig);
