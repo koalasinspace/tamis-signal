@@ -1,6 +1,7 @@
 /**
- * Generates a rich, printable HTML manuscript ("Book of Shadows") from a user profile.
- * Used by the Publish feature in the Journal tab.
+ * Fully generative "Publish Journal" engine.
+ * - Unique, CSS+SVG generated cover per-user (no static images).
+ * - Print-optimized: full-bleed cover, then book-styled pages.
  */
 import type { UserProfile, JournalEntry } from "./lib/types";
 import {
@@ -11,11 +12,8 @@ import {
   getMoonPhase,
   getCelticTree,
 } from "./lib/calculators";
-import { getGrimoireEntry, ESOTERIC_DATA } from "./esotericData";
+import { getGrimoireEntry } from "./esotericData";
 
-type GrimoireDataType = keyof typeof ESOTERIC_DATA;
-
-/** Map favoriteColor (lowercase) to hex for print CSS. */
 const POWER_COLOR_HEX: Record<string, string> = {
   red: "#b91c1c",
   blue: "#2563eb",
@@ -34,35 +32,113 @@ const POWER_COLOR_HEX: Record<string, string> = {
 
 function getPowerColorHex(colorName: string): string {
   const normalized = (colorName || "").toLowerCase().trim();
-  return POWER_COLOR_HEX[normalized] ?? POWER_COLOR_HEX["purple"];
+  return POWER_COLOR_HEX[normalized] ?? POWER_COLOR_HEX.purple;
 }
 
 function escapeHtml(s: string): string {
-  return s
+  return (s || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/\"/g, "&quot;");
 }
 
-/** Format "YYYY-MM-DD" to "October 12, 2024". */
 function formatEntryDate(isoDate: string): string {
   const d = new Date(isoDate + "T12:00:00");
   if (isNaN(d.getTime())) return isoDate;
-  return d.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
-type GrimoirePillar = {
-  label: string;
-  value: string;
-  description?: string;
-};
+function hash01(input: string): number {
+  // Simple deterministic hash -> [0, 1)
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 10000) / 10000;
+}
 
-function getSoulprintPillars(user: UserProfile): GrimoirePillar[] {
+function getElement(user: UserProfile): string {
+  if (user.chineseElement) return user.chineseElement;
+  return user.birthday ? getChineseElement(user.birthday) : "";
+}
+
+function polygonPoints(sides: number, r: number, cx = 0, cy = 0, rotation = 0): string {
+  const pts: string[] = [];
+  const step = (Math.PI * 2) / sides;
+  for (let i = 0; i < sides; i++) {
+    const a = rotation + i * step - Math.PI / 2;
+    const x = cx + r * Math.cos(a);
+    const y = cy + r * Math.sin(a);
+    pts.push(`${x.toFixed(3)},${y.toFixed(3)}`);
+  }
+  return pts.join(" ");
+}
+
+function sigilSvg(opts: { destiny: number; powerHex: string; element: string; seed: number }): string {
+  const d = opts.destiny || 0;
+  const sidesRaw = Number.isFinite(d) ? d : 0;
+  const sides = Math.max(3, Math.min(12, sidesRaw || 3));
+  const rotation = opts.seed * Math.PI * 2;
+  const blur = opts.element === "Water" ? 1.8 : opts.element === "Fire" ? 0.6 : 1.0;
+  const strokeWidth = opts.element === "Metal" ? 2.2 : 1.6;
+
+  const outer = polygonPoints(sides, 120, 150, 150, rotation);
+  const inner = polygonPoints(Math.max(3, Math.floor(sides * 0.75)), 70, 150, 150, -rotation * 0.6);
+  const ring = polygonPoints(sides, 95, 150, 150, rotation + 0.2);
+
+  return `
+  <svg class="sigil" width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <filter id="sigilGlow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="${blur}" result="b"/>
+        <feColorMatrix in="b" type="matrix"
+          values="1 0 0 0 0
+                  0 1 0 0 0
+                  0 0 1 0 0
+                  0 0 0 18 -7" result="g"/>
+        <feMerge>
+          <feMergeNode in="g"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+      <radialGradient id="eyeGlow" cx="50%" cy="50%" r="60%">
+        <stop offset="0%" stop-color="${opts.powerHex}" stop-opacity="1"/>
+        <stop offset="70%" stop-color="${opts.powerHex}" stop-opacity="0.25"/>
+        <stop offset="100%" stop-color="${opts.powerHex}" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+
+    <g filter="url(#sigilGlow)" opacity="0.95">
+      <polygon points="${outer}" fill="none" stroke="${opts.powerHex}" stroke-width="${strokeWidth}" opacity="0.9"/>
+      <polygon points="${ring}" fill="none" stroke="${opts.powerHex}" stroke-width="${strokeWidth * 0.8}" opacity="0.55" stroke-dasharray="6 10"/>
+      <polygon points="${inner}" fill="none" stroke="#f8fafc" stroke-width="${strokeWidth * 0.65}" opacity="0.35"/>
+      <circle cx="150" cy="150" r="32" fill="none" stroke="${opts.powerHex}" stroke-width="${strokeWidth * 0.9}" opacity="0.65"/>
+      <circle cx="150" cy="150" r="18" fill="url(#eyeGlow)" opacity="0.85"/>
+      <circle cx="150" cy="150" r="4.5" fill="#0b1020" opacity="0.9"/>
+    </g>
+  </svg>`;
+}
+
+function coverNoiseSvg(seed: number): string {
+  const baseFreq = (0.8 + seed * 1.2).toFixed(2);
+  const octaves = 3 + Math.floor(seed * 3);
+  return `
+  <svg class="noise" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+    <filter id="turbulence">
+      <feTurbulence type="fractalNoise" baseFrequency="${baseFreq}" numOctaves="${octaves}" stitchTiles="stitch" seed="${Math.floor(seed * 999)}"/>
+      <feColorMatrix type="matrix"
+        values="0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 0.9 0" />
+    </filter>
+    <rect width="100" height="100" filter="url(#turbulence)" opacity="0.22"/>
+  </svg>`;
+}
+
+function resolveSoulprint(user: UserProfile) {
   const birthday = user.birthday || "";
   const planetaryRuler = user.planetaryRuler ?? (birthday ? getPlanetaryRuler(birthday) : "");
   const chineseZodiac = user.chineseZodiac ?? (birthday ? getChineseZodiac(birthday) : "");
@@ -70,228 +146,320 @@ function getSoulprintPillars(user: UserProfile): GrimoirePillar[] {
   const lifePath = user.lifePathNumber ?? (birthday ? calculateLifePath(birthday) : 0);
   const moonPhase = user.moonPhase ?? (birthday ? getMoonPhase(birthday) : "");
   const celticTree = user.celticTree ?? (birthday ? getCelticTree(birthday) : "");
-
-  const pillars: GrimoirePillar[] = [
-    { label: "Sun Sign", value: user.zodiacSign || "—" },
-    { label: "Destiny Number", value: user.destinyNumber ? String(user.destinyNumber) : "—" },
-    { label: "Tarot Archetype", value: user.tarotArchetype || "—" },
-    { label: "Planetary Ruler", value: planetaryRuler || "—" },
-    { label: "Chinese Zodiac", value: chineseZodiac || "—" },
-    { label: "Chinese Element", value: chineseElement || "—" },
-    { label: "Life Path", value: lifePath ? String(lifePath) : "—" },
-    { label: "Moon Phase", value: moonPhase || "—" },
-    { label: "Celtic Tree", value: celticTree || "—" },
-  ];
-
-  const typeKeyMap: Array<{ type: GrimoireDataType; key: (p: GrimoirePillar) => string }> = [
-    { type: "zodiac", key: (p) => p.value },
-    { type: "numerology", key: (p) => (p.label === "Destiny Number" ? p.value : "") },
-    { type: "tarot", key: (p) => (p.label === "Tarot Archetype" ? p.value : "") },
-    { type: "planetaryRuler", key: (p) => (p.label === "Planetary Ruler" ? p.value : "") },
-    { type: "chineseZodiac", key: (p) => (p.label === "Chinese Zodiac" ? p.value : "") },
-    { type: "chineseElement", key: (p) => (p.label === "Chinese Element" ? p.value : "") },
-    { type: "numerology", key: (p) => (p.label === "Life Path" ? p.value : "") },
-    { type: "moonPhase", key: (p) => (p.label === "Moon Phase" ? p.value : "") },
-    { type: "celticTree", key: (p) => (p.label === "Celtic Tree" ? p.value : "") },
-  ];
-
-  return pillars.map((p, i) => {
-    const mapper = typeKeyMap[i];
-    if (!mapper || p.value === "—") return p;
-    const entry = getGrimoireEntry(mapper.type, mapper.key(p));
-    return { ...p, description: entry?.description };
-  });
+  return {
+    zodiac: user.zodiacSign || "",
+    destiny: user.destinyNumber || 0,
+    tarot: user.tarotArchetype || "",
+    planetaryRuler,
+    chineseZodiac,
+    chineseElement,
+    lifePath,
+    moonPhase,
+    celticTree,
+  };
 }
 
-/**
- * Builds a full HTML document for the Book of Shadows: cover, Spiritual Biography (Soulprint), and journal entries.
- * Themed by user.favoriteColor; print-optimized with page breaks.
- */
 export function generateGrimoireHTML(user: UserProfile): string {
   const name = user.name || "Anonymous";
-  const hex = getPowerColorHex(user.favoriteColor);
-  const generatedDate = new Date().toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-  const pillars = getSoulprintPillars(user);
+  const powerHex = getPowerColorHex(user.favoriteColor);
+  const element = getElement(user);
+  const seed = hash01(`${user.name}|${user.birthday}|${user.zodiacSign}|${user.destinyNumber}`);
+
+  const glowStrength =
+    element === "Fire" ? 1.25 : element === "Water" ? 0.95 : element === "Metal" ? 0.9 : 1.05;
+  const sigilBackdropBlur = element === "Water" ? 8 : element === "Fire" ? 2 : 5;
+
+  const generatedDate = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+
+  const s = resolveSoulprint(user);
   const entries = [...(user.journalEntries ?? [])].reverse();
 
-  const coverSvg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="120" height="120" aria-hidden="true">
-      <polygon points="50,5 61,40 97,40 68,62 79,97 50,75 21,97 32,62 3,40 39,40" fill="${hex}" opacity="0.9"/>
-    </svg>`;
+  const summaryRows: Array<{ label: string; value: string; type: Parameters<typeof getGrimoireEntry>[0]; key: string }> = [
+    { label: "Sun Sign", value: s.zodiac || "—", type: "zodiac", key: s.zodiac },
+    { label: "Destiny Number", value: s.destiny ? String(s.destiny) : "—", type: "numerology", key: String(s.destiny) },
+    { label: "Tarot Archetype", value: s.tarot || "—", type: "tarot", key: s.tarot },
+    { label: "Planetary Ruler", value: s.planetaryRuler || "—", type: "planetaryRuler", key: s.planetaryRuler },
+    { label: "Moon Phase", value: s.moonPhase || "—", type: "moonPhase", key: s.moonPhase },
+    { label: "Chinese Element", value: s.chineseElement || "—", type: "chineseElement", key: s.chineseElement },
+    { label: "Chinese Zodiac", value: s.chineseZodiac || "—", type: "chineseZodiac", key: s.chineseZodiac },
+    { label: "Life Path", value: s.lifePath ? String(s.lifePath) : "—", type: "numerology", key: String(s.lifePath) },
+    { label: "Celtic Tree", value: s.celticTree || "—", type: "celticTree", key: s.celticTree },
+  ];
 
-  const prefaceHtml = pillars
-    .map(
-      (p) => `
-      <li class="pillar-item">
-        <strong class="pillar-label">${escapeHtml(p.label)}</strong>
-        <span class="pillar-value">${escapeHtml(p.value)}</span>
-        ${p.description ? `<p class="pillar-desc">${escapeHtml(p.description)}</p>` : ""}
-      </li>`
-    )
+  const summaryHtml = summaryRows
+    .map((row) => {
+      const desc = row.value !== "—" ? getGrimoireEntry(row.type, row.key)?.description : undefined;
+      return `
+        <div class="pill">
+          <div class="pill-k">${escapeHtml(row.label)}</div>
+          <div class="pill-v">${escapeHtml(row.value)}</div>
+          ${desc ? `<div class="pill-d">${escapeHtml(desc)}</div>` : ""}
+        </div>`;
+    })
     .join("");
 
   const entriesHtml = entries
-    .map(
-      (e: JournalEntry, i: number) => `
-      <article class="journal-entry">
-        <time class="entry-date">${escapeHtml(formatEntryDate(e.date))}</time>
-        <p class="entry-prompt">${escapeHtml(e.prompt ?? "")}</p>
-        <div class="entry-reflection">${escapeHtml((e.entry ?? "").replace(/\n/g, "\n")).replace(/\n/g, "<br>")}</div>
-      </article>
-      ${i < entries.length - 1 ? '<hr class="entry-sep" />' : ""}`
-    )
+    .map((e: JournalEntry, i) => {
+      const prompt = escapeHtml(e.prompt ?? "");
+      const reflection = escapeHtml((e.entry ?? "").replace(/\n/g, "\n")).replace(/\n/g, "<br>");
+      return `
+        <article class="entry">
+          <div class="entry-date">${escapeHtml(formatEntryDate(e.date))}</div>
+          <div class="entry-prompt">${prompt}</div>
+          <div class="entry-body">${reflection}</div>
+        </article>
+        ${i < entries.length - 1 ? `<div class="sep"></div>` : ""}`;
+    })
     .join("");
 
-  return `<!DOCTYPE html>
+  const cover = `
+    <section class="page cover page-break">
+      <div class="cover-bg"></div>
+      ${coverNoiseSvg(seed)}
+      <div class="cover-inner">
+        <div class="cover-top">
+          <div class="cover-title">The Book of Shadows</div>
+          <div class="cover-sub">Generated by Tami’s Signal · ${escapeHtml(generatedDate)}</div>
+        </div>
+
+        <div class="cover-center">
+          <div class="sigil-wrap">
+            <div class="sigil-backdrop"></div>
+            ${sigilSvg({ destiny: s.destiny || 3, powerHex, element, seed })}
+          </div>
+          <div class="cover-meta">
+            <span class="meta-chip">${escapeHtml(s.zodiac || "")}</span>
+            <span class="meta-chip">Destiny ${escapeHtml(String(s.destiny || ""))}</span>
+            <span class="meta-chip">${escapeHtml(element || "")}</span>
+          </div>
+        </div>
+
+        <div class="cover-name">${escapeHtml(name)}</div>
+      </div>
+    </section>`;
+
+  return `<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Book of Shadows — ${escapeHtml(name)}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --power: ${hex};
-      --power-muted: ${hex}99;
-    }
-    * { box-sizing: border-box; }
-    body {
-      font-family: 'EB Garamond', Georgia, serif;
-      font-size: 11pt;
-      line-height: 1.6;
-      color: #1a1a1a;
-      margin: 0;
-      padding: 0;
-      background: #fff;
-    }
-    h1, h2 { font-family: 'Playfair Display', Georgia, serif; }
-    hr { border: none; border-top: 1px solid var(--power-muted); margin: 1.5rem 0; }
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grimoire — ${escapeHtml(name)}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+      :root{
+        --power: ${powerHex};
+        --glow: ${glowStrength};
+        --sigilBlur: ${sigilBackdropBlur}px;
+      }
+      *{ box-sizing: border-box; }
+      body{
+        margin:0;
+        padding:0;
+        color:#0b1020;
+        background:#fff;
+        font-family:'EB Garamond', Georgia, serif;
+      }
 
-    @media print {
-      @page { size: letter; margin: 1in; }
-      body { margin: 0; padding: 0; background: #fff; }
-      .page-break { page-break-after: always; }
-      .no-break { page-break-inside: avoid; }
-    }
+      @page { size: letter; margin: 0; }
+      @media print {
+        .page-break{ page-break-after: always; }
+      }
 
-    /* Cover */
-    .cover {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 2rem;
-      border-bottom: 3px double var(--power);
-    }
-    .cover h1 {
-      font-size: 2.25rem;
-      font-weight: 700;
-      margin: 0 0 0.5rem;
-      color: #1a1a1a;
-    }
-    .cover .subtitle {
-      font-size: 1.25rem;
-      font-style: italic;
-      color: #444;
-      margin-bottom: 2rem;
-    }
-    .cover .symbol { margin: 1.5rem 0; }
-    .cover .footer {
-      margin-top: auto;
-      padding-top: 2rem;
-      font-size: 0.9rem;
-      color: #666;
-    }
+      .page{ width: 100%; }
+      .content-page{
+        padding: 1in;
+        min-height: 11in;
+      }
 
-    /* Preface */
-    .preface {
-      padding: 2rem 1.5rem;
-      max-width: 42rem;
-      margin: 0 auto;
-    }
-    .preface h2 {
-      font-size: 1.75rem;
-      color: var(--power);
-      border-bottom: 2px solid var(--power);
-      padding-bottom: 0.5rem;
-      margin-bottom: 1.5rem;
-    }
-    .preface ul { list-style: none; padding: 0; margin: 0; }
-    .pillar-item {
-      margin-bottom: 1.25rem;
-      padding-left: 1rem;
-      border-left: 3px solid var(--power-muted);
-    }
-    .pillar-label { color: var(--power); font-size: 0.95rem; }
-    .pillar-value { display: block; font-weight: 600; margin: 0.25rem 0; }
-    .pillar-desc { margin: 0.5rem 0 0; font-size: 0.9rem; color: #444; font-style: italic; line-height: 1.5; }
+      /* --- COVER (full-bleed) --- */
+      .cover{
+        position: relative;
+        height: 11in;
+        width: 8.5in;
+        max-width: 100vw;
+        overflow: hidden;
+        background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--power) 35%, #0b1020 65%) 0%, #050713 50%, #02030a 100%);
+      }
+      .cover-bg{
+        position:absolute; inset:0;
+        background:
+          radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--power) 45%, #0b1020 55%) 0%, rgba(2,3,10,0.2) 55%, rgba(2,3,10,0.95) 100%);
+        filter: saturate(1.1);
+      }
+      .noise{
+        position:absolute; inset:0;
+        mix-blend-mode: overlay;
+        pointer-events:none;
+      }
+      .cover-inner{
+        position: relative;
+        height: 100%;
+        padding: 0.85in 0.75in 0.9in;
+        display:flex;
+        flex-direction: column;
+        justify-content: space-between;
+        color: #f8fafc;
+      }
+      .cover-title{
+        font-family: 'Cinzel', serif;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 26pt;
+        text-align: center;
+      }
+      .cover-sub{
+        text-align:center;
+        font-size: 10pt;
+        opacity: 0.85;
+        margin-top: 0.25rem;
+      }
+      .cover-center{
+        display:flex;
+        flex-direction: column;
+        align-items:center;
+        gap: 0.9rem;
+      }
+      .sigil-wrap{
+        position: relative;
+        width: 300px;
+        height: 300px;
+        display:grid;
+        place-items:center;
+      }
+      .sigil-backdrop{
+        position:absolute;
+        inset: 12%;
+        border-radius: 999px;
+        background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--power) 35%, transparent) 0%, transparent 70%);
+        filter: blur(var(--sigilBlur));
+        opacity: calc(0.7 * var(--glow));
+      }
+      .sigil{
+        filter: drop-shadow(0 0 calc(18px * var(--glow)) color-mix(in srgb, var(--power) 70%, transparent));
+      }
+      .meta-chip{
+        display:inline-block;
+        font-size: 9pt;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid rgba(248,250,252,0.18);
+        background: rgba(2,3,10,0.25);
+        backdrop-filter: blur(8px);
+        margin: 0 0.25rem;
+      }
+      .cover-name{
+        font-family: 'Cinzel', serif;
+        font-weight: 700;
+        font-size: 24pt;
+        text-align: center;
+        letter-spacing: 0.04em;
+        background: linear-gradient(90deg, #f8fafc, color-mix(in srgb, var(--power) 55%, #f8fafc 45%), #f8fafc);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        text-shadow: 0 0 26px rgba(0,0,0,0.55);
+      }
 
-    @media (min-width: 600px) {
-      .preface .pillars-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 2rem; }
-    }
+      /* --- SUMMARY + ENTRIES (book pages) --- */
+      .h1{
+        font-family:'Cinzel', serif;
+        font-weight:700;
+        letter-spacing:0.06em;
+        text-transform: uppercase;
+        font-size: 18pt;
+        margin: 0 0 0.75rem;
+        color:#0b1020;
+      }
+      .subtle{
+        color:#334155;
+        font-style: italic;
+        margin: 0 0 1rem;
+      }
+      .rule{
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--power), transparent);
+        margin: 0.75rem 0 1.25rem;
+      }
+      .grid{
+        display:grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.7rem 1rem;
+      }
+      .pill{
+        border-left: 3px solid color-mix(in srgb, var(--power) 60%, #0b1020 40%);
+        padding-left: 0.6rem;
+      }
+      .pill-k{
+        font-family:'Cinzel', serif;
+        font-size: 9pt;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color:#0b1020;
+        opacity:0.75;
+      }
+      .pill-v{
+        font-size: 12pt;
+        font-weight: 600;
+        margin-top: 0.15rem;
+      }
+      .pill-d{
+        margin-top: 0.25rem;
+        font-size: 10pt;
+        color:#334155;
+        line-height: 1.45;
+      }
+      .entries-title{
+        margin-top: 1.5rem;
+      }
+      .entry{
+        margin: 0 0 1.2rem;
+      }
+      .entry-date{
+        font-family:'Cinzel', serif;
+        font-weight: 700;
+        color: color-mix(in srgb, var(--power) 70%, #0b1020 30%);
+        margin-bottom: 0.25rem;
+      }
+      .entry-prompt{
+        font-style: italic;
+        color:#475569;
+        margin-bottom: 0.5rem;
+      }
+      .entry-body{
+        font-size: 12pt;
+        color:#0b1020;
+        line-height: 1.7;
+      }
+      .sep{
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(2,6,23,0.22), transparent);
+        margin: 1.1rem 0 1.2rem;
+      }
 
-    /* Entries */
-    .entries {
-      padding: 2rem 1.5rem;
-      max-width: 42rem;
-      margin: 0 auto;
-    }
-    .entries h2 {
-      font-size: 1.75rem;
-      color: var(--power);
-      border-bottom: 2px solid var(--power);
-      padding-bottom: 0.5rem;
-      margin-bottom: 1.5rem;
-    }
-    .journal-entry { margin-bottom: 1.5rem; }
-    .entry-date {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: var(--power);
-      display: block;
-      margin-bottom: 0.5rem;
-    }
-    .entry-prompt {
-      font-size: 0.95rem;
-      font-style: italic;
-      color: #555;
-      margin: 0.5rem 0;
-      line-height: 1.5;
-    }
-    .entry-reflection {
-      font-size: 1rem;
-      white-space: pre-wrap;
-      margin-top: 0.75rem;
-    }
-    .entry-sep { margin: 2rem 0; }
-  </style>
-</head>
-<body>
-  <section class="cover page-break no-break">
-    <h1>The Book of Shadows</h1>
-    <p class="subtitle">Belonging to ${escapeHtml(name)}</p>
-    <div class="symbol">${coverSvg}</div>
-    <p class="footer">Generated by Tami&rsquo;s Signal · ${escapeHtml(generatedDate)}</p>
-  </section>
+      @media (max-width: 650px){
+        .grid{ grid-template-columns: 1fr; }
+        .cover{ width: 100vw; height: 100vh; }
+      }
+    </style>
+  </head>
+  <body>
+    ${cover}
 
-  <section class="preface page-break no-break">
-    <h2>Spiritual Biography</h2>
-    <ul class="pillars-grid">${prefaceHtml}</ul>
-  </section>
+    <section class="page content-page page-break">
+      <div class="h1">Soulprint Summary</div>
+      <div class="subtle">A stitched portrait of your active pillars.</div>
+      <div class="rule"></div>
+      <div class="grid">${summaryHtml}</div>
+    </section>
 
-  <section class="entries">
-    <h2>Journal Entries</h2>
-    ${entriesHtml || "<p class=\"entry-prompt\">No entries yet.</p>"}
-  </section>
-</body>
+    <section class="page content-page">
+      <div class="h1 entries-title">Journal Entries</div>
+      <div class="rule"></div>
+      ${entriesHtml || `<div class="subtle">No entries yet.</div>`}
+    </section>
+  </body>
 </html>`;
 }

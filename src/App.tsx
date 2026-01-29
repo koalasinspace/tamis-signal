@@ -781,7 +781,7 @@ function Dashboard() {
                 onClick={handlePublish}
                 className={`px-4 py-2 rounded-xl border ${theme.borderLight} ${theme.bg} ${theme.text} text-sm font-medium hover:opacity-90 transition-opacity`}
               >
-                Publish to Grimoire
+                Generate My Grimoire
               </button>
             </header>
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
