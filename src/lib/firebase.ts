@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFunctions } from "firebase/functions";
 import { getFirestore } from "firebase/firestore";
@@ -38,7 +38,7 @@ if (configCheck.usingFallback) {
 fetch('http://127.0.0.1:7242/ingest/e6210c2a-f7f1-4292-a851-ae35264b57ce',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'firebase.ts:18',message:'Firebase config before init',data:configCheck,timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
 // #endregion
 
-let app;
+let app: FirebaseApp;
 try {
   app = initializeApp(firebaseConfig);
   // #region agent log

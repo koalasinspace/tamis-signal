@@ -209,7 +209,7 @@ export default function SignalDispatch() {
 
         <div className="mb-4 p-3 rounded-xl border border-[#533483]/25 bg-[#0f0f1a]/50">
           <div className="text-xs font-mono text-[#e2e8f0]/70">
-            projectId: <span className="text-[#e2e8f0]">{(app as any)?.options?.projectId ?? "unknown"}</span>
+            projectId: <span className="text-[#e2e8f0]">{app?.options?.projectId ?? "unknown"}</span>
           </div>
           <div className="text-xs font-mono text-[#e2e8f0]/70 mt-1">
             lastDocId: <span className="text-[#e2e8f0]">{lastDocId ?? "—"}</span>
