@@ -55,30 +55,6 @@ import { getGrimoireEntry, ESOTERIC_DATA, GRIMOIRE_DATA } from "./esotericData";
 import { getPillarIcon, getAttributeSymbol, type PillarType } from "./SoulprintIcons";
 import { generateGrimoireHTML } from "./GrimoireGenerator";
 
-// #region agent log
-const __agentLog = (p: {
-  hypothesisId: string;
-  location: string;
-  message: string;
-  data?: Record<string, unknown>;
-  runId?: string;
-}) => {
-  fetch("http://127.0.0.1:7242/ingest/e6210c2a-f7f1-4292-a851-ae35264b57ce", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sessionId: "debug-session",
-      runId: p.runId ?? "pre-fix",
-      hypothesisId: p.hypothesisId,
-      location: p.location,
-      message: p.message,
-      data: p.data ?? {},
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-};
-// #endregion
-
 const todayDateString = () =>
   new Date().toISOString().slice(0, 10);
 
@@ -229,20 +205,6 @@ function Dashboard() {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }, [activeTab, grimoireFocus]);
-
-  useEffect(() => {
-    __agentLog({
-      hypothesisId: "H-devtab",
-      location: "App.tsx:Dashboard",
-      message: "dashboard role snapshot",
-      data: {
-        hasUserData: !!userData,
-        role,
-        shouldShowDev: role === "admin",
-        isAuthed: !!currentUser,
-      },
-    });
-  }, [role, !!userData, !!currentUser]);
 
   useEffect(() => {
     const hasCompleteSoulprint =

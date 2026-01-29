@@ -1,7 +1,11 @@
 /**
- * Fully generative "Publish Journal" engine.
- * - Unique, CSS+SVG generated cover per-user (no static images).
- * - Print-optimized: full-bleed cover, then book-styled pages.
+ * High-fidelity Grimoire generator (print-ready).
+ * Requirements:
+ * - Virtual leather cover (SVG turbulence + diffuse lighting)
+ * - Destiny-number polygon + zodiac unicode sigil (Eye of the Signal)
+ * - Gold leaf (or Mercury/Silver for Water) stamped typography
+ * - Table of Contents + monthly chapters (reducer-based grouping)
+ * - Strict page breaks for physical-print cleanliness
  */
 import type { UserProfile, JournalEntry } from "./lib/types";
 import {
@@ -30,6 +34,36 @@ const POWER_COLOR_HEX: Record<string, string> = {
   emerald: "#059669",
 };
 
+const ZODIAC_UNICODE: Record<string, string> = {
+  Aries: "♈",
+  Taurus: "♉",
+  Gemini: "♊",
+  Cancer: "♋",
+  Leo: "♌",
+  Virgo: "♍",
+  Libra: "♎",
+  Scorpio: "♏",
+  Sagittarius: "♐",
+  Capricorn: "♑",
+  Aquarius: "♒",
+  Pisces: "♓",
+};
+
+const MONTHS = [
+  "JANUARY",
+  "FEBRUARY",
+  "MARCH",
+  "APRIL",
+  "MAY",
+  "JUNE",
+  "JULY",
+  "AUGUST",
+  "SEPTEMBER",
+  "OCTOBER",
+  "NOVEMBER",
+  "DECEMBER",
+] as const;
+
 function getPowerColorHex(colorName: string): string {
   const normalized = (colorName || "").toLowerCase().trim();
   return POWER_COLOR_HEX[normalized] ?? POWER_COLOR_HEX.purple;
@@ -50,7 +84,6 @@ function formatEntryDate(isoDate: string): string {
 }
 
 function hash01(input: string): number {
-  // Simple deterministic hash -> [0, 1)
   let h = 2166136261;
   for (let i = 0; i < input.length; i++) {
     h ^= input.charCodeAt(i);
@@ -59,83 +92,16 @@ function hash01(input: string): number {
   return ((h >>> 0) % 10000) / 10000;
 }
 
-function getElement(user: UserProfile): string {
-  if (user.chineseElement) return user.chineseElement;
-  return user.birthday ? getChineseElement(user.birthday) : "";
-}
-
-function polygonPoints(sides: number, r: number, cx = 0, cy = 0, rotation = 0): string {
+function polygonPoints(sides: number, r: number, cx: number, cy: number, rotation: number): string {
   const pts: string[] = [];
   const step = (Math.PI * 2) / sides;
   for (let i = 0; i < sides; i++) {
     const a = rotation + i * step - Math.PI / 2;
     const x = cx + r * Math.cos(a);
     const y = cy + r * Math.sin(a);
-    pts.push(`${x.toFixed(3)},${y.toFixed(3)}`);
+    pts.push(`${x.toFixed(2)},${y.toFixed(2)}`);
   }
   return pts.join(" ");
-}
-
-function sigilSvg(opts: { destiny: number; powerHex: string; element: string; seed: number }): string {
-  const d = opts.destiny || 0;
-  const sidesRaw = Number.isFinite(d) ? d : 0;
-  const sides = Math.max(3, Math.min(12, sidesRaw || 3));
-  const rotation = opts.seed * Math.PI * 2;
-  const blur = opts.element === "Water" ? 1.8 : opts.element === "Fire" ? 0.6 : 1.0;
-  const strokeWidth = opts.element === "Metal" ? 2.2 : 1.6;
-
-  const outer = polygonPoints(sides, 120, 150, 150, rotation);
-  const inner = polygonPoints(Math.max(3, Math.floor(sides * 0.75)), 70, 150, 150, -rotation * 0.6);
-  const ring = polygonPoints(sides, 95, 150, 150, rotation + 0.2);
-
-  return `
-  <svg class="sigil" width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <defs>
-      <filter id="sigilGlow" x="-50%" y="-50%" width="200%" height="200%">
-        <feGaussianBlur stdDeviation="${blur}" result="b"/>
-        <feColorMatrix in="b" type="matrix"
-          values="1 0 0 0 0
-                  0 1 0 0 0
-                  0 0 1 0 0
-                  0 0 0 18 -7" result="g"/>
-        <feMerge>
-          <feMergeNode in="g"/>
-          <feMergeNode in="SourceGraphic"/>
-        </feMerge>
-      </filter>
-      <radialGradient id="eyeGlow" cx="50%" cy="50%" r="60%">
-        <stop offset="0%" stop-color="${opts.powerHex}" stop-opacity="1"/>
-        <stop offset="70%" stop-color="${opts.powerHex}" stop-opacity="0.25"/>
-        <stop offset="100%" stop-color="${opts.powerHex}" stop-opacity="0"/>
-      </radialGradient>
-    </defs>
-
-    <g filter="url(#sigilGlow)" opacity="0.95">
-      <polygon points="${outer}" fill="none" stroke="${opts.powerHex}" stroke-width="${strokeWidth}" opacity="0.9"/>
-      <polygon points="${ring}" fill="none" stroke="${opts.powerHex}" stroke-width="${strokeWidth * 0.8}" opacity="0.55" stroke-dasharray="6 10"/>
-      <polygon points="${inner}" fill="none" stroke="#f8fafc" stroke-width="${strokeWidth * 0.65}" opacity="0.35"/>
-      <circle cx="150" cy="150" r="32" fill="none" stroke="${opts.powerHex}" stroke-width="${strokeWidth * 0.9}" opacity="0.65"/>
-      <circle cx="150" cy="150" r="18" fill="url(#eyeGlow)" opacity="0.85"/>
-      <circle cx="150" cy="150" r="4.5" fill="#0b1020" opacity="0.9"/>
-    </g>
-  </svg>`;
-}
-
-function coverNoiseSvg(seed: number): string {
-  const baseFreq = (0.8 + seed * 1.2).toFixed(2);
-  const octaves = 3 + Math.floor(seed * 3);
-  return `
-  <svg class="noise" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-    <filter id="turbulence">
-      <feTurbulence type="fractalNoise" baseFrequency="${baseFreq}" numOctaves="${octaves}" stitchTiles="stitch" seed="${Math.floor(seed * 999)}"/>
-      <feColorMatrix type="matrix"
-        values="0 0 0 0 0
-                0 0 0 0 0
-                0 0 0 0 0
-                0 0 0 0.9 0" />
-    </filter>
-    <rect width="100" height="100" filter="url(#turbulence)" opacity="0.22"/>
-  </svg>`;
 }
 
 function resolveSoulprint(user: UserProfile) {
@@ -148,6 +114,7 @@ function resolveSoulprint(user: UserProfile) {
   const celticTree = user.celticTree ?? (birthday ? getCelticTree(birthday) : "");
   return {
     zodiac: user.zodiacSign || "",
+    zodiacGlyph: ZODIAC_UNICODE[user.zodiacSign] ?? "",
     destiny: user.destinyNumber || 0,
     tarot: user.tarotArchetype || "",
     planetaryRuler,
@@ -159,20 +126,132 @@ function resolveSoulprint(user: UserProfile) {
   };
 }
 
+type Chapter = {
+  key: string; // YYYY-MM
+  label: string; // MONTH YYYY
+  entries: JournalEntry[];
+  count: number;
+};
+
+function groupEntriesByMonthYear(entries: JournalEntry[]): Chapter[] {
+  const grouped = entries.reduce<Record<string, Chapter>>((acc, e) => {
+    const d = new Date((e.date || "") + "T12:00:00");
+    const year = isNaN(d.getTime()) ? "0000" : String(d.getFullYear());
+    const monthIndex = isNaN(d.getTime()) ? 0 : d.getMonth();
+    const month = String(monthIndex + 1).padStart(2, "0");
+    const key = `${year}-${month}`;
+    const label = `${MONTHS[monthIndex] ?? "JANUARY"} ${year}`;
+    if (!acc[key]) acc[key] = { key, label, entries: [], count: 0 };
+    acc[key].entries.push(e);
+    acc[key].count += 1;
+    return acc;
+  }, {});
+
+  const chapters = Object.values(grouped).sort((a, b) => a.key.localeCompare(b.key));
+  chapters.forEach((c) => c.entries.sort((a, b) => (a.date || "").localeCompare(b.date || "")));
+  return chapters;
+}
+
+function coverBackgroundSvg(opts: { seed: number; element: string }): string {
+  // Leather-like: turbulence + diffuse lighting. Optional heat distortion for Fire.
+  const baseFreq = (0.9 + opts.seed * 1.6).toFixed(2);
+  const seedInt = Math.floor(opts.seed * 999);
+  const heat = opts.element === "Fire";
+  return `
+  <svg class="leather" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1400" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      <filter id="leatherTexture" x="-20%" y="-20%" width="140%" height="140%">
+        <feTurbulence type="fractalNoise" baseFrequency="${baseFreq}" numOctaves="4" seed="${seedInt}" result="noise"/>
+        <feColorMatrix in="noise" type="saturate" values="0" result="mono"/>
+        <feDiffuseLighting in="mono" lighting-color="#2a2a2a" surfaceScale="2.2" result="light">
+          <feDistantLight azimuth="225" elevation="35"/>
+        </feDiffuseLighting>
+        <feComposite in="light" in2="mono" operator="in" result="grain"/>
+        <feBlend in="SourceGraphic" in2="grain" mode="overlay"/>
+      </filter>
+
+      ${heat ? `
+      <filter id="heatDistort" x="-20%" y="-20%" width="140%" height="140%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" seed="${seedInt + 7}" result="t"/>
+        <feDisplacementMap in="SourceGraphic" in2="t" scale="18" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>` : ""}
+    </defs>
+
+    <rect width="1000" height="1400" fill="#07070b" filter="url(#leatherTexture)"/>
+  </svg>`;
+}
+
+function eyeOfSignalSigilSvg(opts: {
+  destiny: number;
+  zodiacGlyph: string;
+  secondary: string;
+  seed: number;
+  element: string;
+}): string {
+  const sides = Math.max(3, Math.min(12, Number.isFinite(opts.destiny) ? opts.destiny : 3));
+  const rotation = opts.seed * Math.PI * 2;
+  const outer = polygonPoints(sides, 140, 200, 200, rotation);
+  const inner = polygonPoints(Math.max(3, Math.floor(sides * 0.75)), 86, 200, 200, -rotation * 0.6);
+  const heat = opts.element === "Fire";
+
+  return `
+  <svg class="sigil" width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <radialGradient id="sigilGlow" cx="50%" cy="50%" r="55%">
+        <stop offset="0%" stop-color="${opts.secondary}" stop-opacity="0.95"/>
+        <stop offset="70%" stop-color="${opts.secondary}" stop-opacity="0.18"/>
+        <stop offset="100%" stop-color="${opts.secondary}" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="sigilSoftGlow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="${opts.element === "Water" ? 2.8 : 1.3}" result="b"/>
+        <feMerge>
+          <feMergeNode in="b"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+    </defs>
+
+    <g ${heat ? 'filter="url(#heatDistort)"' : ""}>
+      <circle cx="200" cy="200" r="160" fill="url(#sigilGlow)" opacity="0.75"/>
+      <g filter="url(#sigilSoftGlow)" opacity="0.92">
+        <polygon points="${outer}" fill="none" stroke="${opts.secondary}" stroke-width="2.2" opacity="0.95"/>
+        <polygon points="${inner}" fill="none" stroke="#f8fafc" stroke-width="1.4" opacity="0.35"/>
+        <ellipse cx="200" cy="210" rx="78" ry="42" fill="none" stroke="#f8fafc" stroke-width="1.2" opacity="0.55"/>
+        <ellipse cx="200" cy="210" rx="42" ry="22" fill="none" stroke="${opts.secondary}" stroke-width="1.6" opacity="0.75"/>
+        <circle cx="200" cy="210" r="10" fill="${opts.secondary}" opacity="0.85"/>
+        <circle cx="200" cy="210" r="4" fill="#05060c" opacity="0.9"/>
+        ${opts.zodiacGlyph ? `<text x="200" y="214" text-anchor="middle" dominant-baseline="middle"
+          font-family="Cinzel, serif" font-size="40" fill="#f8fafc" opacity="0.85">${escapeHtml(opts.zodiacGlyph)}</text>` : ""}
+      </g>
+    </g>
+  </svg>`;
+}
+
 export function generateGrimoireHTML(user: UserProfile): string {
   const name = user.name || "Anonymous";
-  const powerHex = getPowerColorHex(user.favoriteColor);
-  const element = getElement(user);
+  const secondary = getPowerColorHex(user.favoriteColor);
+  const s = resolveSoulprint(user);
+  const element = s.chineseElement || (user.birthday ? getChineseElement(user.birthday) : "");
   const seed = hash01(`${user.name}|${user.birthday}|${user.zodiacSign}|${user.destinyNumber}`);
 
-  const glowStrength =
-    element === "Fire" ? 1.25 : element === "Water" ? 0.95 : element === "Metal" ? 0.9 : 1.05;
-  const sigilBackdropBlur = element === "Water" ? 8 : element === "Fire" ? 2 : 5;
+  // Water -> Mercury/Silver leaf, otherwise gold/brass.
+  const leafMode = element === "Water" ? "silver" : "gold";
 
   const generatedDate = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
-  const s = resolveSoulprint(user);
   const entries = [...(user.journalEntries ?? [])].reverse();
+  const chapters = groupEntriesByMonthYear(entries);
+
+  const tocHtml = chapters
+    .map((c) => {
+      return `
+        <div class="toc-row">
+          <div class="toc-chapter">${escapeHtml(c.label)}</div>
+          <div class="toc-dots"></div>
+          <div class="toc-count">${c.count} reflection${c.count === 1 ? "" : "s"}</div>
+        </div>`;
+    })
+    .join("");
 
   const summaryRows: Array<{ label: string; value: string; type: Parameters<typeof getGrimoireEntry>[0]; key: string }> = [
     { label: "Sun Sign", value: s.zodiac || "—", type: "zodiac", key: s.zodiac },
@@ -186,7 +265,7 @@ export function generateGrimoireHTML(user: UserProfile): string {
     { label: "Celtic Tree", value: s.celticTree || "—", type: "celticTree", key: s.celticTree },
   ];
 
-  const summaryHtml = summaryRows
+  const prefaceHtml = summaryRows
     .map((row) => {
       const desc = row.value !== "—" ? getGrimoireEntry(row.type, row.key)?.description : undefined;
       return `
@@ -198,45 +277,62 @@ export function generateGrimoireHTML(user: UserProfile): string {
     })
     .join("");
 
-  const entriesHtml = entries
-    .map((e: JournalEntry, i) => {
-      const prompt = escapeHtml(e.prompt ?? "");
-      const reflection = escapeHtml((e.entry ?? "").replace(/\n/g, "\n")).replace(/\n/g, "<br>");
+  const chaptersHtml = chapters
+    .map((c) => {
+      const entriesHtml = c.entries
+        .map((e) => {
+          const prompt = escapeHtml(e.prompt ?? "");
+          const reflection = escapeHtml((e.entry ?? "").replace(/\n/g, "\n")).replace(/\n/g, "<br>");
+          return `
+            <article class="entry">
+              <div class="entry-date">${escapeHtml(formatEntryDate(e.date))}</div>
+              <div class="truth-block">
+                <div class="truth-label">TRUTH</div>
+                <div class="truth-text">${prompt}</div>
+              </div>
+              <div class="entry-body">${reflection}</div>
+            </article>
+            <div class="entry-sep"></div>
+          `;
+        })
+        .join("");
+
       return `
-        <article class="entry">
-          <div class="entry-date">${escapeHtml(formatEntryDate(e.date))}</div>
-          <div class="entry-prompt">${prompt}</div>
-          <div class="entry-body">${reflection}</div>
-        </article>
-        ${i < entries.length - 1 ? `<div class="sep"></div>` : ""}`;
+        <section class="page content-page page-break">
+          <div class="chapter-head">
+            <div class="chapter-title">${escapeHtml(c.label)}</div>
+            <div class="chapter-sub">Chapter of reflections · ${c.count}</div>
+          </div>
+          <div class="rule"></div>
+          ${entriesHtml || `<div class="subtle">No entries in this chapter.</div>`}
+        </section>
+      `;
     })
     .join("");
 
   const cover = `
     <section class="page cover page-break">
-      <div class="cover-bg"></div>
-      ${coverNoiseSvg(seed)}
+      <div class="cover-bleed">
+        ${coverBackgroundSvg({ seed, element })}
+        <div class="cover-ink"></div>
+      </div>
+
       <div class="cover-inner">
         <div class="cover-top">
-          <div class="cover-title">The Book of Shadows</div>
+          <div class="cover-title leaf-text">The Book of Shadows</div>
           <div class="cover-sub">Generated by Tami’s Signal · ${escapeHtml(generatedDate)}</div>
         </div>
 
         <div class="cover-center">
           <div class="sigil-wrap">
-            <div class="sigil-backdrop"></div>
-            ${sigilSvg({ destiny: s.destiny || 3, powerHex, element, seed })}
-          </div>
-          <div class="cover-meta">
-            <span class="meta-chip">${escapeHtml(s.zodiac || "")}</span>
-            <span class="meta-chip">Destiny ${escapeHtml(String(s.destiny || ""))}</span>
-            <span class="meta-chip">${escapeHtml(element || "")}</span>
+            ${eyeOfSignalSigilSvg({ destiny: s.destiny || 3, zodiacGlyph: s.zodiacGlyph, secondary, seed, element })}
           </div>
         </div>
 
-        <div class="cover-name">${escapeHtml(name)}</div>
+        <div class="cover-name leaf-text">${escapeHtml(name)}</div>
       </div>
-    </section>`;
+    </section>
+  `;
 
   return `<!doctype html>
 <html lang="en">
@@ -249,155 +345,139 @@ export function generateGrimoireHTML(user: UserProfile): string {
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
     <style>
       :root{
-        --power: ${powerHex};
-        --glow: ${glowStrength};
-        --sigilBlur: ${sigilBackdropBlur}px;
+        --secondary: ${secondary};
+        --leafMode: ${leafMode};
+        --leafGold1: #f7e7a1;
+        --leafGold2: #caa24d;
+        --leafGold3: #7a5519;
+        --leafSilver1: #f5f7ff;
+        --leafSilver2: #b7c0d1;
+        --leafSilver3: #6b7486;
+        --paper: #fbfbf7;
+        --ink: #14161d;
       }
+
       *{ box-sizing: border-box; }
       body{
         margin:0;
         padding:0;
-        color:#0b1020;
-        background:#fff;
-        font-family:'EB Garamond', Georgia, serif;
+        font-family: 'EB Garamond', Georgia, serif;
+        color: var(--ink);
+        background: var(--paper);
       }
 
+      /* Full bleed print (cover should hit edge). */
       @page { size: letter; margin: 0; }
       @media print {
-        .page-break{ page-break-after: always; }
+        .page { page-break-after: always; }
+        .page-break { page-break-after: always; }
       }
 
-      .page{ width: 100%; }
+      .page{ width: 8.5in; height: 11in; }
       .content-page{
         padding: 1in;
-        min-height: 11in;
+        background: var(--paper);
       }
 
-      /* --- COVER (full-bleed) --- */
+      /* --- COVER --- */
       .cover{
         position: relative;
-        height: 11in;
-        width: 8.5in;
-        max-width: 100vw;
         overflow: hidden;
-        background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--power) 35%, #0b1020 65%) 0%, #050713 50%, #02030a 100%);
+        background: #05060c;
       }
-      .cover-bg{
+      .cover-bleed{ position:absolute; inset:0; }
+      .leather{ position:absolute; inset:0; width:100%; height:100%; }
+      .cover-ink{
         position:absolute; inset:0;
         background:
-          radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--power) 45%, #0b1020 55%) 0%, rgba(2,3,10,0.2) 55%, rgba(2,3,10,0.95) 100%);
-        filter: saturate(1.1);
-      }
-      .noise{
-        position:absolute; inset:0;
-        mix-blend-mode: overlay;
-        pointer-events:none;
+          radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--secondary) 18%, transparent) 0%, transparent 55%),
+          radial-gradient(circle at 50% 95%, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.9) 65%);
+        mix-blend-mode: screen;
+        opacity: 0.7;
       }
       .cover-inner{
         position: relative;
         height: 100%;
-        padding: 0.85in 0.75in 0.9in;
+        padding: 0.9in 0.85in;
         display:flex;
         flex-direction: column;
         justify-content: space-between;
+        align-items: center;
+        text-align: center;
         color: #f8fafc;
       }
       .cover-title{
-        font-family: 'Cinzel', serif;
-        font-weight: 700;
-        letter-spacing: 0.08em;
+        font-family:'Cinzel', serif;
+        font-weight:700;
+        letter-spacing:0.1em;
         text-transform: uppercase;
         font-size: 26pt;
-        text-align: center;
       }
       .cover-sub{
-        text-align:center;
+        margin-top: 0.3rem;
         font-size: 10pt;
         opacity: 0.85;
-        margin-top: 0.25rem;
-      }
-      .cover-center{
-        display:flex;
-        flex-direction: column;
-        align-items:center;
-        gap: 0.9rem;
       }
       .sigil-wrap{
-        position: relative;
-        width: 300px;
-        height: 300px;
+        width: 420px;
+        max-width: 90%;
         display:grid;
         place-items:center;
       }
-      .sigil-backdrop{
-        position:absolute;
-        inset: 12%;
-        border-radius: 999px;
-        background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--power) 35%, transparent) 0%, transparent 70%);
-        filter: blur(var(--sigilBlur));
-        opacity: calc(0.7 * var(--glow));
-      }
       .sigil{
-        filter: drop-shadow(0 0 calc(18px * var(--glow)) color-mix(in srgb, var(--power) 70%, transparent));
-      }
-      .meta-chip{
-        display:inline-block;
-        font-size: 9pt;
-        padding: 0.2rem 0.55rem;
-        border-radius: 999px;
-        border: 1px solid rgba(248,250,252,0.18);
-        background: rgba(2,3,10,0.25);
-        backdrop-filter: blur(8px);
-        margin: 0 0.25rem;
+        filter: drop-shadow(0 0 22px color-mix(in srgb, var(--secondary) 70%, transparent));
       }
       .cover-name{
-        font-family: 'Cinzel', serif;
-        font-weight: 700;
-        font-size: 24pt;
-        text-align: center;
-        letter-spacing: 0.04em;
-        background: linear-gradient(90deg, #f8fafc, color-mix(in srgb, var(--power) 55%, #f8fafc 45%), #f8fafc);
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-        text-shadow: 0 0 26px rgba(0,0,0,0.55);
-      }
-
-      /* --- SUMMARY + ENTRIES (book pages) --- */
-      .h1{
         font-family:'Cinzel', serif;
         font-weight:700;
         letter-spacing:0.06em;
+        font-size: 24pt;
+      }
+
+      /* Gold leaf / mercury leaf (Water) */
+      .leaf-text{
+        background: linear-gradient(90deg,
+          ${leafMode === "silver" ? "var(--leafSilver1), var(--leafSilver2), var(--leafSilver1), var(--leafSilver3)" : "var(--leafGold1), var(--leafGold2), var(--leafGold1), var(--leafGold3)"}
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        filter: drop-shadow(1px 1px 0px #4d3308);
+      }
+
+      /* --- PREFACE + TOC --- */
+      .h1{
+        font-family:'Cinzel', serif;
+        font-weight:700;
+        letter-spacing:0.08em;
         text-transform: uppercase;
         font-size: 18pt;
-        margin: 0 0 0.75rem;
-        color:#0b1020;
+        margin: 0 0 0.25rem;
       }
       .subtle{
-        color:#334155;
+        margin: 0.25rem 0 1rem;
+        color:#3b4150;
         font-style: italic;
-        margin: 0 0 1rem;
       }
       .rule{
         height: 2px;
-        background: linear-gradient(90deg, transparent, var(--power), transparent);
+        background: linear-gradient(90deg, transparent, var(--secondary), transparent);
         margin: 0.75rem 0 1.25rem;
       }
       .grid{
         display:grid;
         grid-template-columns: 1fr 1fr;
-        gap: 0.7rem 1rem;
+        gap: 0.75rem 1.25rem;
       }
       .pill{
-        border-left: 3px solid color-mix(in srgb, var(--power) 60%, #0b1020 40%);
-        padding-left: 0.6rem;
+        padding-left: 0.65rem;
+        border-left: 3px solid color-mix(in srgb, var(--secondary) 55%, #000 45%);
       }
       .pill-k{
         font-family:'Cinzel', serif;
         font-size: 9pt;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color:#0b1020;
         opacity:0.75;
       }
       .pill-v{
@@ -408,40 +488,104 @@ export function generateGrimoireHTML(user: UserProfile): string {
       .pill-d{
         margin-top: 0.25rem;
         font-size: 10pt;
-        color:#334155;
-        line-height: 1.45;
+        color:#3b4150;
+        line-height: 1.5;
+        font-style: italic;
       }
-      .entries-title{
-        margin-top: 1.5rem;
+
+      .toc{
+        margin-top: 0.25rem;
+      }
+      .toc-row{
+        display:flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        margin: 0.35rem 0;
+      }
+      .toc-chapter{
+        font-family:'Cinzel', serif;
+        font-weight:700;
+        letter-spacing:0.06em;
+        text-transform: uppercase;
+        font-size: 11pt;
+        white-space: nowrap;
+      }
+      .toc-dots{
+        flex: 1;
+        border-bottom: 1px dotted rgba(20,22,29,0.35);
+        transform: translateY(-2px);
+      }
+      .toc-count{
+        font-size: 11pt;
+        color:#3b4150;
+        white-space: nowrap;
+      }
+
+      /* --- CHAPTERS / ENTRIES --- */
+      .chapter-head{
+        text-align: center;
+        margin-top: 0.25in;
+      }
+      .chapter-title{
+        font-family:'Cinzel', serif;
+        font-weight:700;
+        letter-spacing:0.12em;
+        text-transform: uppercase;
+        font-size: 20pt;
+      }
+      .chapter-sub{
+        margin-top: 0.25rem;
+        color:#3b4150;
+        font-style: italic;
       }
       .entry{
-        margin: 0 0 1.2rem;
+        margin: 0 0 1.1rem;
+        page-break-inside: avoid;
       }
       .entry-date{
         font-family:'Cinzel', serif;
-        font-weight: 700;
-        color: color-mix(in srgb, var(--power) 70%, #0b1020 30%);
+        font-weight:700;
+        letter-spacing:0.06em;
+        text-transform: uppercase;
+        font-size: 10pt;
+        color: color-mix(in srgb, var(--secondary) 75%, #000 25%);
+        margin-bottom: 0.35rem;
+      }
+      .truth-block{
+        border: 1px solid ${leafMode === "silver" ? "var(--leafSilver2)" : "var(--leafGold2)"};
+        border-left: 4px solid ${leafMode === "silver" ? "var(--leafSilver3)" : "var(--leafGold3)"};
+        padding: 0.55rem 0.7rem;
+        border-radius: 10px;
+        background: linear-gradient(180deg, rgba(0,0,0,0.03), rgba(0,0,0,0.01));
+        margin-bottom: 0.6rem;
+      }
+      .truth-label{
+        font-family:'Cinzel', serif;
+        font-weight:700;
+        letter-spacing:0.14em;
+        text-transform: uppercase;
+        font-size: 9pt;
+        opacity:0.75;
         margin-bottom: 0.25rem;
       }
-      .entry-prompt{
+      .truth-text{
         font-style: italic;
-        color:#475569;
-        margin-bottom: 0.5rem;
+        color:#2d3342;
+        line-height: 1.55;
       }
       .entry-body{
         font-size: 12pt;
-        color:#0b1020;
-        line-height: 1.7;
+        line-height: 1.75;
       }
-      .sep{
+      .entry-sep{
         height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(2,6,23,0.22), transparent);
-        margin: 1.1rem 0 1.2rem;
+        background: linear-gradient(90deg, transparent, rgba(20,22,29,0.22), transparent);
+        margin: 1rem 0 1.1rem;
       }
 
       @media (max-width: 650px){
+        .page{ width: 100vw; height: 100vh; }
         .grid{ grid-template-columns: 1fr; }
-        .cover{ width: 100vw; height: 100vh; }
       }
     </style>
   </head>
@@ -449,17 +593,25 @@ export function generateGrimoireHTML(user: UserProfile): string {
     ${cover}
 
     <section class="page content-page page-break">
-      <div class="h1">Soulprint Summary</div>
-      <div class="subtle">A stitched portrait of your active pillars.</div>
+      <div class="h1">Preface</div>
+      <div class="subtle">A Soulprint Summary, bound in ink.</div>
       <div class="rule"></div>
-      <div class="grid">${summaryHtml}</div>
+      <div class="grid">${prefaceHtml}</div>
     </section>
 
-    <section class="page content-page">
-      <div class="h1 entries-title">Journal Entries</div>
+    <section class="page content-page page-break">
+      <div class="h1">Table of Contents</div>
+      <div class="subtle">Chapters by month.</div>
       <div class="rule"></div>
-      ${entriesHtml || `<div class="subtle">No entries yet.</div>`}
+      <div class="toc">${tocHtml || `<div class="subtle">No chapters yet.</div>`}</div>
     </section>
+
+    ${chaptersHtml || `
+      <section class="page content-page page-break">
+        <div class="h1">Journal</div>
+        <div class="subtle">No reflections yet.</div>
+      </section>`}
   </body>
 </html>`;
 }
+
