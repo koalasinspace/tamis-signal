@@ -47,7 +47,7 @@ export const oracleGenerate = onCall(
       }
 
       const location = process.env.VERTEX_LOCATION ?? "us-central1";
-      const model = process.env.GEMINI_MODEL ?? "gemini-1.5-flash-001";
+      const model = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
       const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:generateContent`;
 
