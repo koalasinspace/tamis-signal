@@ -202,9 +202,16 @@ Be direct, short (under 200 words), and visceral. Be TAMI.`;
   try {
     const result = await oracleGenerate({ prompt, requestType: "dailyTruth" });
     const duration = Date.now() - startTime;
+    // #region agent log
+    console.log("[generateDailyTruth] RAW API result.data:", JSON.stringify(result.data, null, 2));
+    console.log("[generateDailyTruth] result.data?.text length:", (result.data as any)?.text?.length);
+    // #endregion
     const message =
       (result.data as any)?.text?.trim?.() ||
       "The void is silent today.";
+    // #region agent log
+    console.log("[generateDailyTruth] FINAL message length:", message.length, "message:", message);
+    // #endregion
     
     // Log success
     await logGenerativeSuccess(logId, message, duration, "gemini-2.5-flash", 1024);
@@ -434,9 +441,17 @@ Keep it under 500 words.`;
     });
 
     try {
+      const guidanceResult = await oracleGenerate({ prompt, requestType: "guidance" });
+      // #region agent log
+      console.log("[handleGuidanceRequest] RAW API result.data:", JSON.stringify(guidanceResult.data, null, 2));
+      console.log("[handleGuidanceRequest] result.data?.text length:", (guidanceResult.data as any)?.text?.length);
+      // #endregion
       const text =
-        ((await oracleGenerate({ prompt, requestType: "guidance" })).data as any)?.text ||
+        (guidanceResult.data as any)?.text ||
         "The void is silent today.";
+      // #region agent log
+      console.log("[handleGuidanceRequest] FINAL text length:", text.length, "text:", text);
+      // #endregion
       
       const guidanceDuration = Date.now() - guidanceStartTime;
       // Log success
