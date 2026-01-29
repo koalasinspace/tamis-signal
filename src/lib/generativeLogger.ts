@@ -45,6 +45,13 @@ export interface GenerativeLogEntry {
 /**
  * Logs a generative request before API call
  */
+// Helper to remove undefined values (Firestore rejects undefined)
+function removeUndefined<T extends Record<string, any>>(obj: T): T {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([_, v]) => v !== undefined)
+  ) as T;
+}
+
 export async function logGenerativeRequest(
   uid: string,
   requestType: "dailyTruth" | "guidance",
@@ -58,33 +65,33 @@ export async function logGenerativeRequest(
   }
 ): Promise<string | null> {
   try {
-    const logEntry: Omit<GenerativeLogEntry, "id" | "timestamp"> = {
+    const logEntry = removeUndefined({
       uid,
       requestType,
-      status: "success", // Will be updated on success/error
+      status: "success" as const, // Will be updated on success/error
       prompt,
       promptLength: prompt.length,
-      metadata: {
-        userSoulprint: {
-          name: user.name,
-          zodiacSign: user.zodiacSign,
-          tarotArchetype: user.tarotArchetype,
-          favoriteColor: user.favoriteColor,
-          birthPlace: user.birthPlace,
-          destinyNumber: user.destinyNumber,
-          planetaryRuler: user.planetaryRuler,
-          chineseZodiac: user.chineseZodiac,
-          chineseElement: user.chineseElement,
-          lifePathNumber: user.lifePathNumber,
-          moonPhase: user.moonPhase,
-          celticTree: user.celticTree,
-        },
+      metadata: removeUndefined({
+        userSoulprint: removeUndefined({
+          name: user.name || null,
+          zodiacSign: user.zodiacSign || null,
+          tarotArchetype: user.tarotArchetype || null,
+          favoriteColor: user.favoriteColor || null,
+          birthPlace: user.birthPlace || null,
+          destinyNumber: user.destinyNumber ?? null,
+          planetaryRuler: user.planetaryRuler || null,
+          chineseZodiac: user.chineseZodiac || null,
+          chineseElement: user.chineseElement || null,
+          lifePathNumber: user.lifePathNumber ?? null,
+          moonPhase: user.moonPhase || null,
+          celticTree: user.celticTree || null,
+        }),
         validationPassed: metadata.validationPassed,
-        missingFields: metadata.missingFields,
-        journalEntriesCount: metadata.journalEntriesCount,
-        query: metadata.query,
-      },
-    };
+        missingFields: metadata.missingFields ?? null,
+        journalEntriesCount: metadata.journalEntriesCount ?? null,
+        query: metadata.query ?? null,
+      }),
+    });
 
     // #region agent log
     console.log("[generativeLogger] Attempting to write log", { uid, requestType, promptLength: prompt.length });
@@ -134,14 +141,14 @@ export async function logGenerativeSuccess(
       logId
     );
 
-    await updateDoc(logRef, {
+    await updateDoc(logRef, removeUndefined({
       status: "success",
       response,
       responseLength: response.length,
-      duration,
-      model,
-      maxOutputTokens,
-    });
+      duration: duration ?? null,
+      model: model ?? null,
+      maxOutputTokens: maxOutputTokens ?? null,
+    }));
   } catch (error) {
     console.error("[generativeLogger] Failed to log success", error);
   }
@@ -172,11 +179,15 @@ export async function logGenerativeError(
       logId
     );
 
-    await updateDoc(logRef, {
+    await updateDoc(logRef, removeUndefined({
       status: "error",
-      error: errorData,
-      duration,
-    });
+      error: removeUndefined({
+        message: errorData.message,
+        code: errorData.code ?? null,
+        details: errorData.details ?? null,
+      }),
+      duration: duration ?? null,
+    }));
   } catch (err) {
     console.error("[generativeLogger] Failed to log error", err);
   }
@@ -193,33 +204,33 @@ export async function logGenerativeValidationFailure(
   query?: string
 ): Promise<void> {
   try {
-    const logEntry: Omit<GenerativeLogEntry, "id" | "timestamp"> = {
+    const logEntry = removeUndefined({
       uid,
       requestType,
-      status: "validation_failed",
+      status: "validation_failed" as const,
       prompt: "",
       promptLength: 0,
-      metadata: {
-        userSoulprint: {
-          name: user.name,
-          zodiacSign: user.zodiacSign,
-          tarotArchetype: user.tarotArchetype,
-          favoriteColor: user.favoriteColor,
-          birthPlace: user.birthPlace,
-          destinyNumber: user.destinyNumber,
-          planetaryRuler: user.planetaryRuler,
-          chineseZodiac: user.chineseZodiac,
-          chineseElement: user.chineseElement,
-          lifePathNumber: user.lifePathNumber,
-          moonPhase: user.moonPhase,
-          celticTree: user.celticTree,
-        },
+      metadata: removeUndefined({
+        userSoulprint: removeUndefined({
+          name: user.name || null,
+          zodiacSign: user.zodiacSign || null,
+          tarotArchetype: user.tarotArchetype || null,
+          favoriteColor: user.favoriteColor || null,
+          birthPlace: user.birthPlace || null,
+          destinyNumber: user.destinyNumber ?? null,
+          planetaryRuler: user.planetaryRuler || null,
+          chineseZodiac: user.chineseZodiac || null,
+          chineseElement: user.chineseElement || null,
+          lifePathNumber: user.lifePathNumber ?? null,
+          moonPhase: user.moonPhase || null,
+          celticTree: user.celticTree || null,
+        }),
         validationPassed: false,
         missingFields,
-        journalEntriesCount: user.journalEntries?.length,
-        query,
-      },
-    };
+        journalEntriesCount: user.journalEntries?.length ?? null,
+        query: query ?? null,
+      }),
+    });
 
     await addDoc(
       collection(db, "artifacts", "tamis-signal-v2", "public", "data", "generativeLogs"),
