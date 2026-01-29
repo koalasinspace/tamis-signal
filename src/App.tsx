@@ -28,7 +28,7 @@ import {
   Fingerprint,
 } from "lucide-react";
 import { deleteUser } from "firebase/auth";
-import { doc, deleteDoc, setDoc } from "firebase/firestore";
+import { addDoc, collection, doc, deleteDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db, GEMINI_API_KEY } from "./lib/firebase";
 import { useAuth } from "./context/AuthContext";
 import SignupPage from "./pages/SignupPage";
@@ -54,6 +54,7 @@ import {
 import { getGrimoireEntry, ESOTERIC_DATA, GRIMOIRE_DATA } from "./esotericData";
 import { getPillarIcon, getAttributeSymbol, type PillarType } from "./SoulprintIcons";
 import { generateGrimoireHTML } from "./GrimoireGenerator";
+import SignalDispatch from "./components/SignalDispatch";
 
 const todayDateString = () =>
   new Date().toISOString().slice(0, 10);
@@ -176,17 +177,20 @@ function Dashboard() {
   } | null>(null);
   const [journalEntryText, setJournalEntryText] = useState("");
   const [showUpsellCard, setShowUpsellCard] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteMessage, setInviteMessage] = useState("");
   const [grimoireCategory, setGrimoireCategory] = useState<string>(
     Object.keys(GRIMOIRE_DATA)[0] ?? "Zodiac Signs"
   );
   const [grimoireSearch, setGrimoireSearch] = useState("");
   const [grimoireFocus, setGrimoireFocus] = useState<{ category: string; name: string } | null>(null);
+  const [devPingStatus, setDevPingStatus] = useState<string | null>(null);
+  const [devPingLoading, setDevPingLoading] = useState(false);
   const isGrimoireModalOpen = selectedAttribute !== null;
 
   const theme = getThemeColor(userData?.favoriteColor ?? "purple");
   const role = userData?.role ?? "user";
+  const soulprintComplete =
+    userData?.soulprintComplete ??
+    (userData?.destinyNumber != null && userData.destinyNumber > 0);
 
   const makeGrimoireId = (category: string, name: string) =>
     `grimoire-${(category + "-" + name).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
@@ -223,22 +227,28 @@ function Dashboard() {
     if (activeTab === "dev" && role !== "admin") setActiveTab("daily");
   }, [activeTab, role]);
 
-  const handleSendInvite = () => {
-    const email = inviteEmail.trim();
-    const message = inviteMessage.trim();
-    if (!email) {
-      alert("Please enter an email address.");
-      return;
+  const handleDevPingWrite = async () => {
+    if (!currentUser?.uid) return;
+    setDevPingLoading(true);
+    setDevPingStatus(null);
+    try {
+      await addDoc(
+        collection(db, "artifacts", "tamis-signal-v2", "public", "data", "devPings"),
+        {
+          type: "ping",
+          uid: currentUser.uid,
+          role,
+          appVersion: "2.5",
+          origin: typeof window !== "undefined" ? window.location.origin : "",
+          createdAt: serverTimestamp(),
+        }
+      );
+      setDevPingStatus("Ping written to artifacts/tamis-signal-v2/public/data/devPings");
+    } catch (err: unknown) {
+      setDevPingStatus(`Ping failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setDevPingLoading(false);
     }
-    // No backend mailer yet: generate a mailto and let the admin send it.
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const subject = "Join Tami's Signal";
-    const body = `${message || "You're invited to join Tami's Signal."}\n\n${origin}`;
-    // Runtime evidence for now.
-    console.log("Invite Generated", { email, subject, body, origin });
-    const mailto = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = mailto;
-    alert("Invite Generated");
   };
 
   const handleGuidanceRequest = async () => {
@@ -865,34 +875,114 @@ function Dashboard() {
                 Dev Dashboard
               </h2>
               <p className="text-slate-500 text-sm">
-                User Management
+                Signal Dispatch
               </p>
             </header>
-            <div className={`p-6 rounded-2xl border ${theme.borderLight} bg-slate-900/50`}>
-              <h3 className={`text-sm font-serif font-medium ${theme.text} mb-4`}>Invite User</h3>
-              <div className="space-y-3">
-                <input
-                  type="email"
-                  placeholder="Email Address"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-slate-600"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                />
-                <textarea
-                  placeholder="Custom Invite Message"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-slate-600 min-h-[120px] resize-y"
-                  value={inviteMessage}
-                  onChange={(e) => setInviteMessage(e.target.value)}
-                />
+            <div className="mb-4 p-6 rounded-2xl border border-[#533483]/30 bg-[#0f0f1a]/70 backdrop-blur shadow-lg shadow-purple-900/20">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-serif text-lg text-[#e2e8f0]">Dev Toolkit</h3>
+                  <p className="text-xs font-mono text-[#e2e8f0]/60 mt-1">
+                    Session + paths + quick copies
+                  </p>
+                </div>
+                <div className="text-xs font-mono text-[#d946ef]">Admin</div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-4 rounded-xl border border-[#533483]/25 bg-[#1a1a2e]/40">
+                  <div className="text-xs font-mono text-[#e2e8f0]/60 mb-2">SESSION</div>
+                  <div className="text-sm text-[#e2e8f0]">
+                    UID: <span className="font-mono">{currentUser?.uid ? `${currentUser.uid.slice(0, 8)}…` : "—"}</span>
+                  </div>
+                  <div className="text-sm text-[#e2e8f0] mt-1">
+                    Role: <span className="font-mono text-[#a855f7]">{role}</span>
+                  </div>
+                  <div className="text-sm text-[#e2e8f0] mt-1">
+                    Verified: <span className="font-mono">{currentUser?.emailVerified ? "true" : "false"}</span>
+                  </div>
+                  <div className="text-sm text-[#e2e8f0] mt-1">
+                    Soulprint: <span className="font-mono">{soulprintComplete ? "complete" : "incomplete"}</span>
+                  </div>
+                  <div className="text-sm text-[#e2e8f0] mt-1">
+                    Journal entries: <span className="font-mono">{(userData?.journalEntries ?? []).length}</span>
+                  </div>
+                  <div className="text-sm text-[#e2e8f0] mt-1">
+                    Daily truth: <span className="font-mono">{userData?.dailyTruth?.date ?? "—"}</span>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border border-[#533483]/25 bg-[#1a1a2e]/40">
+                  <div className="text-xs font-mono text-[#e2e8f0]/60 mb-2">PATHS</div>
+                  <div className="text-[12px] font-mono text-[#e2e8f0]/80 break-all">
+                    users/{currentUser?.uid ?? "UID"}
+                  </div>
+                  <div className="text-[12px] font-mono text-[#e2e8f0]/80 break-all mt-1">
+                    artifacts/tamis-signal-v2/public/data/mail
+                  </div>
+                  <div className="text-[12px] font-mono text-[#e2e8f0]/80 break-all mt-1">
+                    artifacts/tamis-signal-v2/public/data/devPings
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={handleSendInvite}
-                  className={`w-full px-4 py-2 rounded-lg text-sm font-medium text-white ${theme.bg} ${theme.bgHover}`}
+                  onClick={() => currentUser?.uid && navigator.clipboard?.writeText(currentUser.uid)}
+                  disabled={!currentUser?.uid}
+                  className="px-3 py-2 rounded-xl bg-[#0f0f1a]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono hover:border-[#d946ef]/60 hover:bg-[#0f0f1a]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Send Invite
+                  Copy UID
+                </button>
+                <button
+                  type="button"
+                  onClick={() => currentUser?.uid && navigator.clipboard?.writeText(`users/${currentUser.uid}`)}
+                  disabled={!currentUser?.uid}
+                  className="px-3 py-2 rounded-xl bg-[#0f0f1a]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono hover:border-[#d946ef]/60 hover:bg-[#0f0f1a]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Copy User Doc Path
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard?.writeText("artifacts/tamis-signal-v2/public/data/mail")}
+                  className="px-3 py-2 rounded-xl bg-[#0f0f1a]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono hover:border-[#d946ef]/60 hover:bg-[#0f0f1a]/80 transition-colors"
+                >
+                  Copy Mail Path
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard?.writeText(typeof window !== "undefined" ? window.location.origin : "")}
+                  className="px-3 py-2 rounded-xl bg-[#0f0f1a]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono hover:border-[#d946ef]/60 hover:bg-[#0f0f1a]/80 transition-colors"
+                >
+                  Copy Origin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => userData && navigator.clipboard?.writeText(JSON.stringify(userData, null, 2))}
+                  disabled={!userData}
+                  className="px-3 py-2 rounded-xl bg-[#0f0f1a]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono hover:border-[#d946ef]/60 hover:bg-[#0f0f1a]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Copy userData JSON
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDevPingWrite}
+                  disabled={!currentUser?.uid || devPingLoading}
+                  className="px-3 py-2 rounded-xl bg-[#0f0f1a]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono hover:border-[#d946ef]/60 hover:bg-[#0f0f1a]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {devPingLoading ? "Writing Ping…" : "Ping Write Test"}
                 </button>
               </div>
+
+              {devPingStatus && (
+                <div className="mt-3 p-3 rounded-xl border border-[#533483]/25 bg-[#1a1a2e]/40 text-sm text-[#e2e8f0]">
+                  <span className="font-mono text-[#e2e8f0]/70">Ping:</span>{" "}
+                  <span className="font-mono">{devPingStatus}</span>
+                </div>
+              )}
             </div>
+            <SignalDispatch />
           </div>
         )}
 
