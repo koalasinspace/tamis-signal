@@ -161,9 +161,13 @@ export const oracleGenerate = onCall(
 
       const json = (await resp.json()) as any;
       // #region agent log
+      console.log("[oracleGenerate] FULL API RESPONSE:", JSON.stringify(json, null, 2));
       console.log("[oracleGenerate] Parsing response", { 
         hasCandidates: !!json?.candidates, 
-        candidatesLength: json?.candidates?.length ?? 0 
+        candidatesLength: json?.candidates?.length ?? 0,
+        finishReason: json?.candidates?.[0]?.finishReason,
+        safetyRatings: json?.candidates?.[0]?.safetyRatings,
+        usageMetadata: json?.usageMetadata
       });
       // #endregion
       
@@ -172,7 +176,11 @@ export const oracleGenerate = onCall(
         "The void is silent today.";
 
       // #region agent log
-      console.log("[oracleGenerate] Success", { outputLength: out.length });
+      console.log("[oracleGenerate] Success", { 
+        outputLength: out.length,
+        outputPreview: out.substring(0, 100) + "...",
+        outputEnd: "..." + out.substring(out.length - 50)
+      });
       // #endregion
       
       return { text: out };
