@@ -112,14 +112,15 @@ async function generateDailyTruth(
 ): Promise<{ success: boolean; reason?: string }> {
   const today = todayDateString();
   const currentRefreshCount = user.dailyTruth?.date === today ? (user.dailyTruth.refreshCount ?? 0) : 0;
+  const isDevUser = user.role === "admin" || user.role === "owner";
   
   // If not forcing refresh and already have today's truth, skip
   if (!forceRefresh && user.dailyTruth?.date === today) {
     return { success: true, reason: "already_generated" };
   }
   
-  // If forcing refresh, check the limit (max 3 refreshes per day)
-  if (forceRefresh && currentRefreshCount >= 3) {
+  // If forcing refresh, check the limit (max 3 refreshes per day) - dev users bypass limit
+  if (forceRefresh && currentRefreshCount >= 3 && !isDevUser) {
     return { success: false, reason: "refresh_limit_reached" };
   }
 
@@ -675,7 +676,8 @@ function Dashboard() {
                     {(() => {
                       const today = todayDateString();
                       const refreshCount = userData?.dailyTruth?.date === today ? (userData.dailyTruth.refreshCount ?? 0) : 0;
-                      const canRefresh = refreshCount < 3;
+                      const isDevUser = role === "admin" || role === "owner";
+                      const canRefresh = isDevUser || refreshCount < 3;
                       return (
                         <button
                           type="button"
@@ -686,10 +688,10 @@ function Dashboard() {
                               ? "hover:bg-slate-700/50"
                               : "opacity-40 cursor-not-allowed"
                           }`}
-                          title={canRefresh ? `Refresh (${3 - refreshCount} left today)` : "Daily limit reached"}
+                          title={isDevUser ? "Unlimited refreshes (dev)" : canRefresh ? `Refresh (${3 - refreshCount} left today)` : "Daily limit reached"}
                         >
                           <RefreshCw size={18} className={isGeneratingDailyTruth ? "animate-spin" : ""} />
-                          <span className="text-[10px] font-mono">{3 - refreshCount}</span>
+                          <span className="text-[10px] font-mono">{isDevUser ? "∞" : 3 - refreshCount}</span>
                         </button>
                       );
                     })()}
