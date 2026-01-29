@@ -75,12 +75,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signUp = async (name: string, email: string, password: string) => {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    await sendEmailVerification(user);
-    const minimal = { ...createMinimalProfile(name, email), role: determineRole(email) };
-    await setDoc(doc(db, "users", user.uid), minimal);
-    setUserData(minimal);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      await sendEmailVerification(user);
+      const minimal = { ...createMinimalProfile(name, email), role: determineRole(email) };
+      await setDoc(doc(db, "users", user.uid), minimal);
+      setUserData(minimal);
+    } catch (error: any) {
+      // Handle case where user exists in Auth but not in Firestore (manually deleted)
+      if (error?.code === "auth/email-already-in-use") {
+        // Try to sign them in instead
+        try {
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
+          
+          // Check if Firestore doc exists
+          const docRef = doc(db, "users", user.uid);
+          const docSnap = await getDoc(docRef);
+          
+          if (!docSnap.exists()) {
+            // User exists in Auth but not Firestore - create the doc
+            const minimal = { ...createMinimalProfile(name, email), role: determineRole(email) };
+            await setDoc(docRef, minimal);
+            setUserData(minimal);
+          } else {
+            // Doc exists, just update it with the new name if needed
+            const existing = docSnap.data() as UserProfile;
+            const updated = { ...existing, name, email, role: determineRole(email) };
+            await setDoc(docRef, updated, { merge: true });
+            setUserData(updated);
+          }
+        } catch (signInError: any) {
+          // If sign-in fails, the password is wrong - throw original error
+          throw error;
+        }
+      } else {
+        // Re-throw other errors
+        throw error;
+      }
+    }
   };
 
   const signIn = async (email: string, password: string) => {
