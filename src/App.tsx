@@ -56,6 +56,13 @@ import { getGrimoireEntry, ESOTERIC_DATA, GRIMOIRE_DATA } from "./esotericData";
 import { getPillarIcon, getAttributeSymbol, type PillarType } from "./SoulprintIcons";
 import { generateGrimoireHTML } from "./GrimoireGenerator";
 import SignalDispatch from "./components/SignalDispatch";
+import GenerativeLogViewer from "./components/GenerativeLogViewer";
+import {
+  logGenerativeRequest,
+  logGenerativeSuccess,
+  logGenerativeError,
+  logGenerativeValidationFailure,
+} from "./lib/generativeLogger";
 
 const todayDateString = () =>
   new Date().toISOString().slice(0, 10);
@@ -105,15 +112,18 @@ async function generateDailyTruth(
   if (user.dailyTruth?.date === today) return;
 
   // Validate required soulprint fields before generating
-  if (!user.name || !user.zodiacSign || !user.tarotArchetype || !user.favoriteColor || !user.birthPlace || user.destinyNumber === 0) {
-    console.error("[generateDailyTruth] Missing required soulprint fields", {
-      hasName: !!user.name,
-      hasZodiac: !!user.zodiacSign,
-      hasTarot: !!user.tarotArchetype,
-      hasColor: !!user.favoriteColor,
-      hasBirthPlace: !!user.birthPlace,
-      hasDestinyNumber: user.destinyNumber !== 0
-    });
+  const missingFields: string[] = [];
+  if (!user.name) missingFields.push("name");
+  if (!user.zodiacSign) missingFields.push("zodiacSign");
+  if (!user.tarotArchetype) missingFields.push("tarotArchetype");
+  if (!user.favoriteColor) missingFields.push("favoriteColor");
+  if (!user.birthPlace) missingFields.push("birthPlace");
+  if (user.destinyNumber === 0) missingFields.push("destinyNumber");
+
+  if (missingFields.length > 0) {
+    console.error("[generateDailyTruth] Missing required soulprint fields", { missingFields });
+    // Log validation failure
+    await logGenerativeValidationFailure(uid, "dailyTruth", user, missingFields);
     // Set a fallback message instead of failing silently
     const fallbackMessage = "Your soulprint is still forming. Complete your profile to receive daily truths.";
     const updated: UserProfile = {
@@ -155,11 +165,23 @@ DATE: ${today}
 
 INSTRUCTIONS: Connect their specific pillars to the current date. Give them ONE hard truth they need to hear today to align with their destiny. Be direct, short (under 50 words), and visceral. No fluff.`;
 
+  // Log the request
+  const startTime = Date.now();
+  const logId = await logGenerativeRequest(uid, "dailyTruth", prompt, user, {
+    validationPassed: true,
+    journalEntriesCount: user.journalEntries?.length,
+  });
+
   try {
     const result = await oracleGenerate({ prompt, requestType: "dailyTruth" });
+    const duration = Date.now() - startTime;
     const message =
       (result.data as any)?.text?.trim?.() ||
       "The void is silent today.";
+    
+    // Log success
+    await logGenerativeSuccess(logId, message, duration, "gemini-2.5-flash", 1024);
+
     const updated: UserProfile = {
       ...user,
       dailyTruth: { date: today, message },
@@ -167,6 +189,13 @@ INSTRUCTIONS: Connect their specific pillars to the current date. Give them ONE 
     await setDoc(doc(db, "users", uid), { dailyTruth: { date: today, message } }, { merge: true });
     setUserData(updated);
   } catch (error: any) {
+    const duration = Date.now() - startTime;
+    // Log error
+    await logGenerativeError(logId, {
+      message: error?.message || "Unknown error",
+      code: error?.code,
+      details: error?.details,
+    }, duration);
     // #region agent log
     console.error("[generateDailyTruth] Error", {
       errorMessage: error?.message,
@@ -260,7 +289,7 @@ function Dashboard() {
   }, [currentUser?.uid, userData, setUserData]);
 
   useEffect(() => {
-    if (activeTab === "dev" && role !== "admin") setActiveTab("daily");
+    if (activeTab === "dev" && role !== "admin" && role !== "owner") setActiveTab("daily");
   }, [activeTab, role]);
 
   const handleDevPingWrite = async () => {
@@ -288,10 +317,20 @@ function Dashboard() {
   };
 
   const handleGuidanceRequest = async () => {
-    if (!guidanceQuery.trim() || !userData) return;
+    if (!guidanceQuery.trim() || !userData || !currentUser) return;
     
     // Validate required soulprint fields
-    if (!userData.name || !userData.zodiacSign || !userData.tarotArchetype || !userData.favoriteColor || !userData.birthPlace || userData.destinyNumber === 0) {
+    const guidanceMissingFields: string[] = [];
+    if (!userData.name) guidanceMissingFields.push("name");
+    if (!userData.zodiacSign) guidanceMissingFields.push("zodiacSign");
+    if (!userData.tarotArchetype) guidanceMissingFields.push("tarotArchetype");
+    if (!userData.favoriteColor) guidanceMissingFields.push("favoriteColor");
+    if (!userData.birthPlace) guidanceMissingFields.push("birthPlace");
+    if (userData.destinyNumber === 0) guidanceMissingFields.push("destinyNumber");
+
+    if (guidanceMissingFields.length > 0) {
+      // Log validation failure
+      await logGenerativeValidationFailure(currentUser.uid, "guidance", userData, guidanceMissingFields, guidanceQuery);
       setGuidanceResponse("Your soulprint is incomplete. Complete your profile to receive guidance.");
       return;
     }
@@ -343,13 +382,34 @@ function Dashboard() {
       Be direct. Do not sugarcoat. Give "tough love" motivation.
       Keep it under 100 words.
     `;
+
+    // Log the request
+    const guidanceStartTime = Date.now();
+    const guidanceLogId = await logGenerativeRequest(currentUser.uid, "guidance", prompt, userData, {
+      validationPassed: true,
+      journalEntriesCount: userData.journalEntries?.length,
+      query: guidanceQuery,
+    });
+
     try {
       const text =
         ((await oracleGenerate({ prompt, requestType: "guidance" })).data as any)?.text ||
         "The void is silent today.";
+      
+      const guidanceDuration = Date.now() - guidanceStartTime;
+      // Log success
+      await logGenerativeSuccess(guidanceLogId, text, guidanceDuration, "gemini-2.5-flash", 1024);
+
       setGuidanceResponse(text);
       if (hasAnxietyKeyword) setShowUpsellCard(true);
     } catch (error: any) {
+      const guidanceDuration = Date.now() - guidanceStartTime;
+      // Log error
+      await logGenerativeError(guidanceLogId, {
+        message: error?.message || "Unknown error",
+        code: error?.code,
+        details: error?.details,
+      }, guidanceDuration);
       // #region agent log
       console.error("[handleGuidanceRequest] Error", {
         errorMessage: error?.message,
@@ -541,7 +601,7 @@ function Dashboard() {
           icon={<Fingerprint size={24} />}
           label="Soulprint"
         />
-        {role === "admin" && (
+        {(role === "admin" || role === "owner") && (
           <NavButton
             active={activeTab === "dev"}
             onClick={() => setActiveTab("dev")}
@@ -911,7 +971,7 @@ function Dashboard() {
           </div>
         )}
 
-        {activeTab === "dev" && role === "admin" && (
+        {activeTab === "dev" && (role === "admin" || role === "owner") && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <header className="mb-6">
               <h2 className="text-3xl font-serif text-white mb-2">
@@ -1026,6 +1086,7 @@ function Dashboard() {
               )}
             </div>
             <SignalDispatch />
+            <GenerativeLogViewer />
           </div>
         )}
 

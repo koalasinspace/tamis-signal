@@ -35,6 +35,14 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated(); // App validates role client-side
     }
     
+    // Generative logs collection - authenticated users can read/write
+    // Note: App validates admin/owner role client-side before allowing writes
+    match /artifacts/{artifactId}/public/data/generativeLogs/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated(); // App validates role client-side
+    }
+    
     // Deny all other access
     match /{document=**} {
       allow read, write: if false;
