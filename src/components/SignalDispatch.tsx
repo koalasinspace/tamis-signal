@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   addDoc,
   collection,
+  doc,
   limit,
   onSnapshot,
   orderBy,
@@ -10,7 +11,7 @@ import {
 } from "firebase/firestore";
 import type { Timestamp } from "firebase/firestore";
 import { Copy, Send, Zap } from "lucide-react";
-import { auth, db } from "../lib/firebase";
+import { app, auth, db } from "../lib/firebase";
 
 type InviteDoc = {
   id: string;
@@ -18,6 +19,8 @@ type InviteDoc = {
   createdAt?: Timestamp | null;
   metadata?: { type?: string; invitedBy?: string; appVersion?: string };
   message?: { subject?: string };
+  delivery?: { state?: string; error?: unknown; attempts?: number; info?: unknown };
+  error?: unknown;
 };
 
 function isValidEmail(email: string): boolean {
@@ -40,6 +43,9 @@ export default function SignalDispatch() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [recent, setRecent] = useState<InviteDoc[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [lastDocId, setLastDocId] = useState<string | null>(null);
+  const [lastDocStatus, setLastDocStatus] = useState<string | null>(null);
 
   const mailCollectionRef = useMemo(
     () => collection(db, "artifacts", "tamis-signal-v2", "public", "data", "mail"),
@@ -66,6 +72,24 @@ export default function SignalDispatch() {
     );
     return () => unsub();
   }, [mailCollectionRef]);
+
+  // After a dispatch, watch the created doc for extension-updated delivery fields.
+  useEffect(() => {
+    if (!lastDocId) return;
+    const ref = doc(mailCollectionRef, lastDocId);
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        const data = (snap.data() as any) ?? {};
+        const state = data?.delivery?.state ?? (data?.delivery ? "delivery updated" : "queued");
+        setLastDocStatus(state);
+      },
+      () => {
+        // ignore
+      }
+    );
+    return () => unsub();
+  }, [lastDocId, mailCollectionRef]);
 
   const invitedBy = auth.currentUser?.uid;
   const subject = "You have been summoned to Tami's Signal";
@@ -121,9 +145,11 @@ export default function SignalDispatch() {
 
     setLoading(true);
     setStatus(null);
+    setLastDocId(null);
+    setLastDocStatus(null);
 
     try {
-      await addDoc(mailCollectionRef, {
+      const created = await addDoc(mailCollectionRef, {
         to,
         message: { subject, text, html },
         metadata: {
@@ -133,6 +159,7 @@ export default function SignalDispatch() {
         },
         createdAt: serverTimestamp(),
       });
+      setLastDocId(created.id);
       setEmail("");
       setCustomMessage("");
       setStatus({ type: "success", message: "Signal Dispatched" });
@@ -178,6 +205,19 @@ export default function SignalDispatch() {
             </p>
           </div>
           <div className="text-xs font-mono text-[#d946ef]">Oracle v2.5</div>
+        </div>
+
+        <div className="mb-4 p-3 rounded-xl border border-[#533483]/25 bg-[#0f0f1a]/50">
+          <div className="text-xs font-mono text-[#e2e8f0]/70">
+            projectId: <span className="text-[#e2e8f0]">{(app as any)?.options?.projectId ?? "unknown"}</span>
+          </div>
+          <div className="text-xs font-mono text-[#e2e8f0]/70 mt-1">
+            lastDocId: <span className="text-[#e2e8f0]">{lastDocId ?? "—"}</span>
+            {lastDocStatus ? <span className="text-[#d946ef]"> • {lastDocStatus}</span> : null}
+          </div>
+          <div className="text-[11px] text-[#e2e8f0]/60 mt-1">
+            If emails aren’t sending, check whether your docs get a <span className="font-mono">delivery</span> field (or an <span className="font-mono">error</span> field) after creation.
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
@@ -256,9 +296,55 @@ export default function SignalDispatch() {
                     </div>
                   </div>
                   <div className="text-[11px] font-mono text-[#d946ef]">
-                    {r.metadata?.type ?? "invitation"}
+                    {r.delivery?.state ?? r.metadata?.type ?? "invitation"}
                   </div>
                 </div>
+
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
+                    className="px-2 py-1 rounded-lg bg-[#0f0f1a]/60 border border-[#533483]/35 text-[#e2e8f0]/80 text-[11px] font-mono hover:border-[#d946ef]/60 transition-colors"
+                  >
+                    {expandedId === r.id ? "Hide Debug" : "Show Debug"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(r.id)}
+                    className="px-2 py-1 rounded-lg bg-[#0f0f1a]/60 border border-[#533483]/35 text-[#e2e8f0]/80 text-[11px] font-mono hover:border-[#d946ef]/60 transition-colors inline-flex items-center gap-1"
+                    title="Copy document ID"
+                  >
+                    <Copy size={12} />
+                    Copy Doc ID
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(JSON.stringify(r, null, 2))}
+                    className="px-2 py-1 rounded-lg bg-[#0f0f1a]/60 border border-[#533483]/35 text-[#e2e8f0]/80 text-[11px] font-mono hover:border-[#d946ef]/60 transition-colors inline-flex items-center gap-1"
+                    title="Copy full doc (debug)"
+                  >
+                    <Copy size={12} />
+                    Copy Doc JSON
+                  </button>
+                </div>
+
+                {expandedId === r.id && (
+                  <pre className="mt-2 p-3 rounded-xl bg-[#0f0f1a]/70 border border-[#533483]/25 text-[11px] text-[#e2e8f0]/80 overflow-x-auto">
+{JSON.stringify(
+  {
+    id: r.id,
+    to: r.to,
+    createdAt: r.createdAt ? formatWhen(r.createdAt) : null,
+    metadata: r.metadata,
+    message: { subject: r.message?.subject },
+    delivery: r.delivery,
+    error: r.error,
+  },
+  null,
+  2
+)}
+                  </pre>
+                )}
               </div>
             ))}
           </div>
