@@ -1518,7 +1518,7 @@ export default function App() {
   const isVerified = currentUser?.emailVerified ?? false;
   
   // Wait for userData to be fully loaded before making routing decisions
-  // If user is logged in but userData is null, they're a new user (should go to soulprint)
+  // If user is logged in but userData is null, wait for it to load
   // If userData exists but doesn't have soulprint fields yet, wait for full data
   // Check if userData has the essential fields (not just role)
   const hasEssentialFields = userData && (
@@ -1527,7 +1527,8 @@ export default function App() {
     userData.birthday !== undefined ||
     userData.name !== undefined
   );
-  const userDataIncomplete = currentUser && userData && !hasEssentialFields;
+  // Show loading if: user is logged in and verified but userData hasn't loaded yet, OR userData exists but is incomplete
+  const userDataIncomplete = currentUser && isVerified && (!userData || (userData && !hasEssentialFields));
   
   // #region agent log
   const soulprintDebug = {
