@@ -86,6 +86,10 @@ export async function logGenerativeRequest(
       },
     };
 
+    // #region agent log
+    console.log("[generativeLogger] Attempting to write log", { uid, requestType, promptLength: prompt.length });
+    // #endregion
+
     const docRef = await addDoc(
       collection(db, "artifacts", "tamis-signal-v2", "public", "data", "generativeLogs"),
       {
@@ -94,9 +98,15 @@ export async function logGenerativeRequest(
       }
     );
 
+    // #region agent log
+    console.log("[generativeLogger] Log written successfully", { docId: docRef.id });
+    // #endregion
+
     return docRef.id;
-  } catch (error) {
-    console.error("[generativeLogger] Failed to log request", error);
+  } catch (error: any) {
+    // #region agent log
+    console.error("[generativeLogger] FAILED to write log", { errorMessage: error?.message, errorCode: error?.code, error });
+    // #endregion
     return null;
   }
 }

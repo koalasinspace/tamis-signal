@@ -154,6 +154,10 @@ async function generateDailyTruth(
   const moonPhase = user.moonPhase ?? (user.birthday ? getMoonPhase(user.birthday) : "");
   const celticTree = user.celticTree ?? (user.birthday ? getCelticTree(user.birthday) : "");
 
+  // #region agent log
+  console.log("[generateDailyTruth] Soulprint values", { destinyNumber: user.destinyNumber, lifePathNumber: user.lifePathNumber, lifePath, name: user.name });
+  // #endregion
+
   // Use safe string interpolation with fallbacks
   const soulBlueprint = `
 - Zodiac: ${user.zodiacSign || "Unknown"}
@@ -177,6 +181,10 @@ DATE: ${today}
 
 INSTRUCTIONS: Connect their specific pillars to the current date. Give them ONE hard truth they need to hear today to align with their destiny. Be direct, short (under 50 words), and visceral. No fluff.`;
 
+  // #region agent log
+  console.log("[generateDailyTruth] Final soulBlueprint in prompt", soulBlueprint);
+  // #endregion
+
   // Log the request
   const startTime = Date.now();
   const logId = await logGenerativeRequest(uid, "dailyTruth", prompt, user, {
@@ -193,6 +201,10 @@ INSTRUCTIONS: Connect their specific pillars to the current date. Give them ONE 
     const message =
       (result.data as any)?.text?.trim?.() ||
       "The void is silent today.";
+    
+    // #region agent log
+    console.log("[generateDailyTruth] AI response received", { response: message, duration });
+    // #endregion
     
     // Log success
     await logGenerativeSuccess(logId, message, duration, "gemini-2.5-flash", 1024);
@@ -338,6 +350,9 @@ function Dashboard() {
 
   const handleRefreshDailyTruth = async () => {
     if (!currentUser || !userData) return;
+    // #region agent log
+    console.log("[handleRefreshDailyTruth] userData before refresh", { destinyNumber: userData.destinyNumber, lifePathNumber: userData.lifePathNumber, name: userData.name });
+    // #endregion
     setRefreshLimitReached(false);
     setIsGeneratingDailyTruth(true);
     const result = await generateDailyTruth(userData, currentUser.uid, setUserData, true);
