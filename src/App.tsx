@@ -144,7 +144,14 @@ INSTRUCTIONS: Connect their specific pillars to the current date. Give them ONE 
     };
     await setDoc(doc(db, "users", uid), { dailyTruth: { date: today, message } }, { merge: true });
     setUserData(updated);
-  } catch {
+  } catch (error: any) {
+    // #region agent log
+    console.error("[generateDailyTruth] Error", {
+      errorMessage: error?.message,
+      errorCode: error?.code,
+      errorDetails: error?.details
+    });
+    // #endregion
     // Leave existing dailyTruth or empty; could set a fallback message
   }
 }
@@ -301,7 +308,14 @@ function Dashboard() {
         "The void is silent.";
       setGuidanceResponse(text);
       if (hasAnxietyKeyword) setShowUpsellCard(true);
-    } catch {
+    } catch (error: any) {
+      // #region agent log
+      console.error("[handleGuidanceRequest] Error", {
+        errorMessage: error?.message,
+        errorCode: error?.code,
+        errorDetails: error?.details
+      });
+      // #endregion
       setGuidanceResponse(
         "The connection to the ether is weak. Check your internet."
       );

@@ -12,66 +12,139 @@ export const oracleGenerate = onCall(
     memory: "256MiB",
   },
   async (req) => {
-    if (!req.auth?.uid) {
-      throw new HttpsError("unauthenticated", "Must be signed in.");
+    try {
+      // #region agent log
+      console.log("[oracleGenerate] Function called", { 
+        hasAuth: !!req.auth?.uid, 
+        promptLength: (req.data as OracleGenerateInput)?.prompt?.length ?? 0 
+      });
+      // #endregion
+      
+      if (!req.auth?.uid) {
+        throw new HttpsError("unauthenticated", "Must be signed in.");
+      }
+
+      const prompt = (req.data as OracleGenerateInput)?.prompt;
+      if (!prompt || typeof prompt !== "string" || prompt.trim().length < 2) {
+        throw new HttpsError("invalid-argument", "Missing prompt.");
+      }
+
+      const projectId = process.env.GCLOUD_PROJECT;
+      // #region agent log
+      console.log("[oracleGenerate] Environment check", { 
+        hasProjectId: !!projectId, 
+        projectId: projectId ? projectId.substring(0, 10) + "..." : "undefined" 
+      });
+      // #endregion
+      
+      if (!projectId) {
+        throw new HttpsError("failed-precondition", "Missing GCLOUD_PROJECT.");
+      }
+
+      const location = process.env.VERTEX_LOCATION ?? "us-central1";
+      const model = process.env.GEMINI_MODEL ?? "gemini-1.5-flash-002";
+
+      const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:generateContent`;
+
+      // #region agent log
+      console.log("[oracleGenerate] Getting auth client", { url: url.substring(0, 80) + "..." });
+      // #endregion
+      
+      const auth = new GoogleAuth({
+        scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+      });
+      const client = await auth.getClient();
+      const tokenResponse = await client.getAccessToken();
+      const accessToken = tokenResponse?.token;
+      
+      // #region agent log
+      console.log("[oracleGenerate] Access token", { 
+        hasToken: !!accessToken, 
+        tokenLength: accessToken?.length ?? 0 
+      });
+      // #endregion
+      
+      if (!accessToken) {
+        throw new HttpsError("internal", "Failed to obtain access token.");
+      }
+
+      const body = {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.9,
+          maxOutputTokens: 160,
+        },
+      };
+
+      // #region agent log
+      console.log("[oracleGenerate] Calling Vertex AI", { 
+        url: url.substring(0, 80) + "...", 
+        promptLength: prompt.length 
+      });
+      // #endregion
+      
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+
+      // #region agent log
+      console.log("[oracleGenerate] Vertex AI response", { 
+        status: resp.status, 
+        ok: resp.ok 
+      });
+      // #endregion
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        // #region agent log
+        console.error("[oracleGenerate] Vertex AI error", { 
+          status: resp.status, 
+          errorText: text.slice(0, 200) 
+        });
+        // #endregion
+        throw new HttpsError(
+          "internal",
+          `Vertex AI error ${resp.status}: ${text.slice(0, 500)}`
+        );
+      }
+
+      const json = (await resp.json()) as any;
+      // #region agent log
+      console.log("[oracleGenerate] Parsing response", { 
+        hasCandidates: !!json?.candidates, 
+        candidatesLength: json?.candidates?.length ?? 0 
+      });
+      // #endregion
+      
+      const out =
+        json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim?.() ??
+        "The void is silent today.";
+
+      // #region agent log
+      console.log("[oracleGenerate] Success", { outputLength: out.length });
+      // #endregion
+      
+      return { text: out };
+    } catch (error: any) {
+      // #region agent log
+      console.error("[oracleGenerate] Error caught", { 
+        errorMessage: error?.message, 
+        errorCode: error?.code,
+        stack: error?.stack?.substring(0, 200) 
+      });
+      // #endregion
+      
+      // Re-throw HttpsError as-is, wrap others
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      throw new HttpsError("internal", `Unexpected error: ${error?.message ?? String(error)}`);
     }
-
-    const prompt = (req.data as OracleGenerateInput)?.prompt;
-    if (!prompt || typeof prompt !== "string" || prompt.trim().length < 2) {
-      throw new HttpsError("invalid-argument", "Missing prompt.");
-    }
-
-    const projectId = process.env.GCLOUD_PROJECT;
-    if (!projectId) {
-      throw new HttpsError("failed-precondition", "Missing GCLOUD_PROJECT.");
-    }
-
-    const location = process.env.VERTEX_LOCATION ?? "us-central1";
-    const model = process.env.GEMINI_MODEL ?? "gemini-1.5-flash-002";
-
-    const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:generateContent`;
-
-    const auth = new GoogleAuth({
-      scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-    });
-    const client = await auth.getClient();
-    const tokenResponse = await client.getAccessToken();
-    const accessToken = tokenResponse?.token;
-    if (!accessToken) {
-      throw new HttpsError("internal", "Failed to obtain access token.");
-    }
-
-    const body = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.9,
-        maxOutputTokens: 160,
-      },
-    };
-
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => "");
-      throw new HttpsError(
-        "internal",
-        `Vertex AI error ${resp.status}: ${text.slice(0, 500)}`
-      );
-    }
-
-    const json = (await resp.json()) as any;
-    const out =
-      json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim?.() ??
-      "The void is silent today.";
-
-    return { text: out };
   }
 );
 
