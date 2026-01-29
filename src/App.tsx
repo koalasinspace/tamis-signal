@@ -28,8 +28,9 @@ import {
   Fingerprint,
 } from "lucide-react";
 import { deleteUser } from "firebase/auth";
+import { httpsCallable } from "firebase/functions";
 import { addDoc, collection, doc, deleteDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { auth, db, GEMINI_API_KEY } from "./lib/firebase";
+import { auth, db, functions } from "./lib/firebase";
 import { useAuth } from "./context/AuthContext";
 import SignupPage from "./pages/SignupPage";
 import LoginPage from "./pages/LoginPage";
@@ -93,6 +94,8 @@ const HIGH_ANXIETY_KEYWORDS = [
   "hopeless", "cant go on", "lost", "crisis", "emergency", "breaking down", "falling apart",
 ];
 
+const oracleGenerate = httpsCallable(functions, "oracleGenerate");
+
 async function generateDailyTruth(
   user: UserProfile,
   uid: string,
@@ -131,17 +134,9 @@ DATE: ${today}
 INSTRUCTIONS: Connect their specific pillars to the current date. Give them ONE hard truth they need to hear today to align with their destiny. Be direct, short (under 50 words), and visceral. No fluff.`;
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-      }
-    );
-    const data = await response.json();
+    const result = await oracleGenerate({ prompt });
     const message =
-      data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
+      (result.data as any)?.text?.trim?.() ||
       "The void is silent today.";
     const updated: UserProfile = {
       ...user,
@@ -301,17 +296,8 @@ function Dashboard() {
       Keep it under 100 words.
     `;
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-        }
-      );
-      const data = await response.json();
       const text =
-        data.candidates?.[0]?.content?.parts?.[0]?.text ||
+        ((await oracleGenerate({ prompt })).data as any)?.text ||
         "The void is silent.";
       setGuidanceResponse(text);
       if (hasAnxietyKeyword) setShowUpsellCard(true);

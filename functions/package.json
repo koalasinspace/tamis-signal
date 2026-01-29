@@ -1,0 +1,21 @@
+{
+  "name": "tamis-signal-functions",
+  "private": true,
+  "main": "lib/index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "echo \"(optional) add eslint\"",
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "firebase-functions": "^7.0.5",
+    "google-auth-library": "^9.15.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  }
+}
