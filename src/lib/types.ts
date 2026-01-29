@@ -27,6 +27,7 @@ export interface UserProfile {
   dailyTruth?: {
     date: string; // "YYYY-MM-DD"
     message: string;
+    refreshCount?: number; // how many times refreshed today (max 3)
   };
   journalEntries?: Array<JournalEntry>;
   pushNotificationsEnabled?: boolean;

@@ -26,6 +26,7 @@ import {
   BookOpen,
   Library,
   Fingerprint,
+  RefreshCw,
 } from "lucide-react";
 import { deleteUser } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
@@ -106,10 +107,21 @@ const oracleGenerate = httpsCallable(functions, "oracleGenerate");
 async function generateDailyTruth(
   user: UserProfile,
   uid: string,
-  setUserData: (d: UserProfile | null) => void
-): Promise<void> {
+  setUserData: (d: UserProfile | null) => void,
+  forceRefresh: boolean = false
+): Promise<{ success: boolean; reason?: string }> {
   const today = todayDateString();
-  if (user.dailyTruth?.date === today) return;
+  const currentRefreshCount = user.dailyTruth?.date === today ? (user.dailyTruth.refreshCount ?? 0) : 0;
+  
+  // If not forcing refresh and already have today's truth, skip
+  if (!forceRefresh && user.dailyTruth?.date === today) {
+    return { success: true, reason: "already_generated" };
+  }
+  
+  // If forcing refresh, check the limit (max 3 refreshes per day)
+  if (forceRefresh && currentRefreshCount >= 3) {
+    return { success: false, reason: "refresh_limit_reached" };
+  }
 
   // Validate required soulprint fields before generating
   const missingFields: string[] = [];
@@ -128,11 +140,11 @@ async function generateDailyTruth(
     const fallbackMessage = "Your soulprint is still forming. Complete your profile to receive daily truths.";
     const updated: UserProfile = {
       ...user,
-      dailyTruth: { date: today, message: fallbackMessage },
+      dailyTruth: { date: today, message: fallbackMessage, refreshCount: currentRefreshCount },
     };
-    await setDoc(doc(db, "users", uid), { dailyTruth: { date: today, message: fallbackMessage } }, { merge: true }).catch(() => {});
+    await setDoc(doc(db, "users", uid), { dailyTruth: { date: today, message: fallbackMessage, refreshCount: currentRefreshCount } }, { merge: true }).catch(() => {});
     setUserData(updated);
-    return;
+    return { success: false, reason: "validation_failed" };
   }
 
   const planetaryRuler = user.planetaryRuler ?? (user.birthday ? getPlanetaryRuler(user.birthday) : "");
@@ -172,6 +184,9 @@ INSTRUCTIONS: Connect their specific pillars to the current date. Give them ONE 
     journalEntriesCount: user.journalEntries?.length,
   });
 
+  // Calculate new refresh count (increment if refreshing, otherwise 0 for new day)
+  const newRefreshCount = forceRefresh ? currentRefreshCount + 1 : 0;
+
   try {
     const result = await oracleGenerate({ prompt, requestType: "dailyTruth" });
     const duration = Date.now() - startTime;
@@ -182,12 +197,14 @@ INSTRUCTIONS: Connect their specific pillars to the current date. Give them ONE 
     // Log success
     await logGenerativeSuccess(logId, message, duration, "gemini-2.5-flash", 1024);
 
+    const dailyTruthData = { date: today, message, refreshCount: newRefreshCount };
     const updated: UserProfile = {
       ...user,
-      dailyTruth: { date: today, message },
+      dailyTruth: dailyTruthData,
     };
-    await setDoc(doc(db, "users", uid), { dailyTruth: { date: today, message } }, { merge: true });
+    await setDoc(doc(db, "users", uid), { dailyTruth: dailyTruthData }, { merge: true });
     setUserData(updated);
+    return { success: true };
   } catch (error: any) {
     const duration = Date.now() - startTime;
     // Log error
@@ -206,16 +223,18 @@ INSTRUCTIONS: Connect their specific pillars to the current date. Give them ONE 
     // #endregion
     // Set fallback message on error
     const fallbackMessage = "The void is silent today. The connection to the oracle is weak—try again later.";
+    const dailyTruthData = { date: today, message: fallbackMessage, refreshCount: currentRefreshCount };
     const updated: UserProfile = {
       ...user,
-      dailyTruth: { date: today, message: fallbackMessage },
+      dailyTruth: dailyTruthData,
     };
     try {
-      await setDoc(doc(db, "users", uid), { dailyTruth: { date: today, message: fallbackMessage } }, { merge: true });
+      await setDoc(doc(db, "users", uid), { dailyTruth: dailyTruthData }, { merge: true });
       setUserData(updated);
     } catch (dbError) {
       console.error("[generateDailyTruth] Failed to save fallback message", dbError);
     }
+    return { success: false, reason: "api_error" };
   }
 }
 
@@ -249,6 +268,7 @@ function Dashboard() {
   const [grimoireFocus, setGrimoireFocus] = useState<{ category: string; name: string } | null>(null);
   const [devPingStatus, setDevPingStatus] = useState<string | null>(null);
   const [devPingLoading, setDevPingLoading] = useState(false);
+  const [refreshLimitReached, setRefreshLimitReached] = useState(false);
   const isGrimoireModalOpen = selectedAttribute !== null;
 
   const theme = getThemeColor(userData?.favoriteColor ?? "purple");
@@ -313,6 +333,17 @@ function Dashboard() {
       setDevPingStatus(`Ping failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setDevPingLoading(false);
+    }
+  };
+
+  const handleRefreshDailyTruth = async () => {
+    if (!currentUser || !userData) return;
+    setRefreshLimitReached(false);
+    setIsGeneratingDailyTruth(true);
+    const result = await generateDailyTruth(userData, currentUser.uid, setUserData, true);
+    setIsGeneratingDailyTruth(false);
+    if (!result.success && result.reason === "refresh_limit_reached") {
+      setRefreshLimitReached(true);
     }
   };
 
@@ -640,14 +671,37 @@ function Dashboard() {
               <div className="relative z-10">
                 <div className={`flex items-center justify-between gap-2 mb-4 ${theme.textMuted} text-xs font-bold uppercase tracking-widest`}>
                   <span className="flex items-center gap-2"><Star size={12} /> {new Date().toLocaleDateString()}</span>
-                  <button
-                    type="button"
-                    onClick={handleShareDailyTruth}
-                    className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
-                    title="Share"
-                  >
-                    <Share2 size={18} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    {(() => {
+                      const today = todayDateString();
+                      const refreshCount = userData?.dailyTruth?.date === today ? (userData.dailyTruth.refreshCount ?? 0) : 0;
+                      const canRefresh = refreshCount < 3;
+                      return (
+                        <button
+                          type="button"
+                          onClick={handleRefreshDailyTruth}
+                          disabled={!canRefresh || isGeneratingDailyTruth}
+                          className={`p-2 rounded-lg transition-colors flex items-center gap-1 ${
+                            canRefresh && !isGeneratingDailyTruth
+                              ? "hover:bg-slate-700/50"
+                              : "opacity-40 cursor-not-allowed"
+                          }`}
+                          title={canRefresh ? `Refresh (${3 - refreshCount} left today)` : "Daily limit reached"}
+                        >
+                          <RefreshCw size={18} className={isGeneratingDailyTruth ? "animate-spin" : ""} />
+                          <span className="text-[10px] font-mono">{3 - refreshCount}</span>
+                        </button>
+                      );
+                    })()}
+                    <button
+                      type="button"
+                      onClick={handleShareDailyTruth}
+                      className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
+                      title="Share"
+                    >
+                      <Share2 size={18} />
+                    </button>
+                  </div>
                 </div>
                 {isGeneratingDailyTruth ? (
                   <p className={`text-lg ${theme.textMuted} italic`}>
@@ -656,6 +710,11 @@ function Dashboard() {
                 ) : (
                   <p className="text-xl md:text-2xl font-serif leading-relaxed text-slate-50">
                     "{userData?.dailyTruth?.message ?? ""}"
+                  </p>
+                )}
+                {refreshLimitReached && (
+                  <p className="mt-2 text-xs text-amber-400/80 font-mono">
+                    You&apos;ve reached your daily refresh limit. Return tomorrow for a new truth.
                   </p>
                 )}
                 <div className="mt-6 pt-4 border-t border-slate-800">
