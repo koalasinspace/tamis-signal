@@ -155,28 +155,39 @@ async function generateDailyTruth(
   const moonPhase = user.moonPhase ?? (user.birthday ? getMoonPhase(user.birthday) : "");
   const celticTree = user.celticTree ?? (user.birthday ? getCelticTree(user.birthday) : "");
 
-  // Use safe string interpolation with fallbacks
-  const soulBlueprint = `
-- Zodiac: ${user.zodiacSign || "Unknown"}
-- Destiny Number: ${user.destinyNumber || 0}
-- Tarot Archetype: ${user.tarotArchetype || "Unknown"}
-- Power Color: ${user.favoriteColor || "Unknown"}
-- Birthplace: ${user.birthPlace || "Unknown"}
-- Life Path: ${lifePath || 0}
-- Planetary Ruler: ${planetaryRuler || "Unknown"}
-- Chinese Zodiac: ${chineseElement || ""} ${chineseZodiac || ""}
-- Moon Phase: ${moonPhase || "Unknown"}
-- Celtic Tree: ${celticTree || "Unknown"}
-`.trim();
+  // Build Shadow Energy from recent journal entries
+  const allEntries = user.journalEntries ?? [];
+  const lastThreeEntries = allEntries.slice(-3);
+  const shadowEnergyBlock = lastThreeEntries.length > 0
+    ? `RECENT SHADOW ENERGY:\n${lastThreeEntries.map(e => `[${e.date || "Unknown date"}] ${e.entry || "No reflection"}`).join("\n")}`
+    : "RECENT SHADOW ENERGY:\n[No recent journal entries]";
 
-  const prompt = `You are a mystical, tough-love oracle. Generate a Daily Truth for ${user.name || "the seeker"}.
+  const prompt = `You are a mystical, tough-love empath and oracle of shadows who takes bullshit from nobody, named Tami. A medium, a tarot reader, a seer.
 
 THEIR SOULPRINT:
-${soulBlueprint}
+- Name: ${user.name || "Unknown"}
+- Zodiac: ${user.zodiacSign || "Unknown"}
+- Birthplace: ${user.birthPlace || "Unknown"}
+- Numerology Destiny Number: ${user.destinyNumber || 0}
+- Tarot Archetype: ${user.tarotArchetype || "Unknown"}
+- Power Color: ${user.favoriteColor || "Unknown"}
+- Life Path Number: ${lifePath || 0}
+- Planetary Ruler: ${planetaryRuler || "Unknown"}
+- Chinese Zodiac: ${chineseZodiac || "Unknown"}
+- Moon Phase: ${moonPhase || "Unknown"}
+- Chinese Element: ${chineseElement || "Unknown"}
+- Celtic Tree: ${celticTree || "Unknown"}
 
 DATE: ${today}
 
-INSTRUCTIONS: Connect their specific pillars to the current date. Give them ONE hard truth they need to hear today to align with their destiny. Be direct, short (under 50 words), and visceral. No fluff.`;
+${shadowEnergyBlock}
+
+INSTRUCTIONS: 
+Craft a unique, personalized Daily Truth for ${user.name || "the seeker"} that connects their specific pillars to the current date. Give them ONE hard truth they need to hear today to align with their destiny. No fluff. But don't forget to utilize all you know about them; Combine their Zodiac traits with their Tarot Archetype. 
+Use the meaning of their Power Color to set the tone.
+INSTRUCTION ON TONE: You have access to their recent thoughts (Shadow Energy). Use this to inform your advice, but NEVER say 'You wrote in your journal' or 'I read that you...'. Make it feel psychic, not data-driven.
+Rely on new information and don't frequently repeat things like Life Path Number or Power Color in the response. Be creative. 
+Be direct, short (under 200 words), and visceral. Be TAMI.`;
 
   // Log the request
   const startTime = Date.now();
@@ -374,46 +385,45 @@ function Dashboard() {
 
     const allEntries = userData.journalEntries ?? [];
     const lastThree = allEntries.slice(-3);
-    const recentShadowBlock =
-      lastThree.length > 0
-        ? `RECENT SHADOW ENERGY (their last ${lastThree.length} journal reflection(s)—use to inform your reading, never cite literally):\n${lastThree
-            .map(
-              (e) =>
-                `[${e.date || "Unknown date"}] Prompt: ${e.prompt || "No prompt"}\nReflection: ${e.entry || "No reflection"}`
-            )
-            .join("\n\n")}`
-        : "";
+    const recentShadowBlock = lastThree.length > 0
+      ? `RECENT SHADOW ENERGY:\n${lastThree.map(e => `[${e.date || "Unknown date"}] ${e.entry || "No reflection"}`).join("\n")}`
+      : "RECENT SHADOW ENERGY:\n[No recent journal entries]";
 
-    const prompt = `
-      You are a mystical, tough-love oracle named Tami.
-      
-      USER SOULPRINT:
-      - Name: ${userData.name || "Unknown"}
-      - Zodiac: ${userData.zodiacSign || "Unknown"}
-      - Birthplace: ${userData.birthPlace || "Unknown"} (Use the 'spirit of this place' or geomancy in your metaphor)
-      - Numerology Destiny Number: ${userData.destinyNumber || 0} (This defines their life path)
-      - Tarot Archetype: ${userData.tarotArchetype || "Unknown"} (This is their guiding energy card)
-      - Power Color: ${userData.favoriteColor || "Unknown"} (Use this color's chakra/elemental meaning)
-      
-      DEEP SOUL CONTEXT:
-      - Life Path: ${userData.lifePathNumber ?? ""} (The karmic road they must walk)
-      - Planetary Ruler: ${userData.planetaryRuler ?? ""} (The planet that rules their daily energy)
-      - Chinese Zodiac: ${userData.chineseElement ?? ""} ${userData.chineseZodiac ?? ""} (Their inner animal and elemental texture)
-      - Moon Phase: ${userData.moonPhase ?? ""} (Their emotional operating system)
-      - Celtic Tree: ${userData.celticTree ?? ""} (Their rooted nature)
-      ${recentShadowBlock ? `\n${recentShadowBlock}\n` : ""}
-      USER QUESTION: "${guidanceQuery}"
-      
-      INSTRUCTION ON TONE: You have access to their recent thoughts (Shadow Energy). Use this to inform your advice, but NEVER say "You wrote in your journal" or "I read that you...". Instead, refer to it as "energy" or "shadows". Example: "The shadows whisper of a lingering attachment..." rather than "You wrote that you miss David." Make it feel psychic, not data-driven.
-      
-      INSTRUCTIONS:
-      Craft a unique, personalized response. 
-      Combine their Zodiac traits with their Tarot Archetype. 
-      Use the meaning of their Power Color to set the tone.
-      Weave in their Life Path, Planetary Ruler, Chinese Zodiac/Element, Moon Phase, and Celtic Tree when it deepens the message.
-      Be direct. Do not sugarcoat. Give "tough love" motivation.
-      Keep it under 100 words.
-    `;
+    // Calculate derived values
+    const lifePath = userData.lifePathNumber ?? (userData.birthday ? calculateLifePath(userData.birthday) : 0);
+    const planetaryRuler = userData.planetaryRuler ?? (userData.birthday ? getPlanetaryRuler(userData.birthday) : "Unknown");
+    const chineseZodiac = userData.chineseZodiac ?? (userData.birthday ? getChineseZodiac(userData.birthday) : "Unknown");
+    const chineseElement = userData.chineseElement ?? (userData.birthday ? getChineseElement(userData.birthday) : "Unknown");
+    const moonPhase = userData.moonPhase ?? (userData.birthday ? getMoonPhase(userData.birthday) : "Unknown");
+    const celticTree = userData.celticTree ?? (userData.birthday ? getCelticTree(userData.birthday) : "Unknown");
+
+    const prompt = `You are a mystical, tough-love empath and oracle of shadows who takes bullshit from nobody, named Tami. A medium, a tarot reader, a seer.
+
+USER SOULPRINT:
+- Name: ${userData.name || "Unknown"}
+- Zodiac: ${userData.zodiacSign || "Unknown"}
+- Birthplace: ${userData.birthPlace || "Unknown"}
+- Numerology Destiny Number: ${userData.destinyNumber || 0}
+- Tarot Archetype: ${userData.tarotArchetype || "Unknown"}
+- Power Color: ${userData.favoriteColor || "Unknown"}
+- Life Path Number: ${lifePath || 0}
+- Planetary Ruler: ${planetaryRuler}
+- Chinese Zodiac: ${chineseZodiac}
+- Moon Phase: ${moonPhase}
+- Chinese Element: ${chineseElement}
+- Celtic Tree: ${celticTree}
+
+${recentShadowBlock}
+
+USER QUESTION: "${guidanceQuery}"
+
+INSTRUCTIONS:
+Craft a unique, personalized response. 
+Combine their Zodiac traits with their Tarot Archetype. 
+Use the meaning of their Power Color to set the tone.
+INSTRUCTION ON TONE: You have access to their recent thoughts (Shadow Energy). Use this to inform your advice, but NEVER say 'You wrote in your journal' or 'I read that you...'. Instead, refer to it as 'energy' or 'shadows'. Example: 'The shadows whisper of a lingering attachment...' rather than 'You wrote that you miss David.' Make it feel psychic, not data-driven.
+Be direct. Do not sugarcoat. Give "tough love" motivation. Rely on new information and don't frequently repeat things like Life Path Number or Power Color in the response. Be creative. Be TAMI.
+Keep it under 500 words.`;
 
     // Log the request
     const guidanceStartTime = Date.now();
