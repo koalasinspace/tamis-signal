@@ -4,7 +4,10 @@ import { GoogleAuth } from "google-auth-library";
 
 setGlobalOptions({ region: "us-central1" });
 
-type OracleGenerateInput = { prompt?: string };
+type OracleGenerateInput = { 
+  prompt?: string;
+  requestType?: "dailyTruth" | "guidance"; // Optional: helps determine token limit
+};
 
 export const oracleGenerate = onCall(
   {
@@ -33,6 +36,14 @@ export const oracleGenerate = onCall(
       if (!prompt || typeof prompt !== "string" || prompt.trim().length < 2) {
         throw new HttpsError("invalid-argument", "Missing prompt.");
       }
+      
+      // Validate prompt length (Vertex AI has limits, prevent extremely long prompts)
+      const trimmedPrompt = prompt.trim();
+      if (trimmedPrompt.length > 100000) {
+        throw new HttpsError("invalid-argument", "Prompt too long (max 100,000 characters).");
+      }
+      
+      const requestType = (req.data as OracleGenerateInput)?.requestType;
 
       const projectId = process.env.GCLOUD_PROJECT;
       // #region agent log
@@ -85,18 +96,24 @@ export const oracleGenerate = onCall(
         throw new HttpsError("internal", "Failed to obtain access token.");
       }
 
+      // Determine token limit based on request type
+      // Both Daily Truth and Guidance use 1024 tokens for longer, more detailed responses
+      const maxOutputTokens = 1024;
+      
       const body = {
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        contents: [{ role: "user", parts: [{ text: trimmedPrompt }] }],
         generationConfig: {
           temperature: 0.9,
-          maxOutputTokens: 160,
+          maxOutputTokens,
         },
       };
 
       // #region agent log
       console.log("[oracleGenerate] Calling Vertex AI", { 
         url: url.substring(0, 80) + "...", 
-        promptLength: prompt.length 
+        promptLength: trimmedPrompt.length,
+        requestType: requestType ?? "unknown",
+        maxOutputTokens
       });
       // #endregion
       

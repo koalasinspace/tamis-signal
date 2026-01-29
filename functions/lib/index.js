@@ -27,6 +27,12 @@ exports.oracleGenerate = (0, https_1.onCall)({
         if (!prompt || typeof prompt !== "string" || prompt.trim().length < 2) {
             throw new https_1.HttpsError("invalid-argument", "Missing prompt.");
         }
+        // Validate prompt length (Vertex AI has limits, prevent extremely long prompts)
+        const trimmedPrompt = prompt.trim();
+        if (trimmedPrompt.length > 100000) {
+            throw new https_1.HttpsError("invalid-argument", "Prompt too long (max 100,000 characters).");
+        }
+        const requestType = req.data?.requestType;
         const projectId = process.env.GCLOUD_PROJECT;
         // #region agent log
         console.log("[oracleGenerate] Environment check", {
@@ -71,17 +77,22 @@ exports.oracleGenerate = (0, https_1.onCall)({
         if (!accessToken) {
             throw new https_1.HttpsError("internal", "Failed to obtain access token.");
         }
+        // Determine token limit based on request type
+        // Both Daily Truth and Guidance use 1024 tokens for longer, more detailed responses
+        const maxOutputTokens = 1024;
         const body = {
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            contents: [{ role: "user", parts: [{ text: trimmedPrompt }] }],
             generationConfig: {
                 temperature: 0.9,
-                maxOutputTokens: 160,
+                maxOutputTokens,
             },
         };
         // #region agent log
         console.log("[oracleGenerate] Calling Vertex AI", {
             url: url.substring(0, 80) + "...",
-            promptLength: prompt.length
+            promptLength: trimmedPrompt.length,
+            requestType: requestType ?? "unknown",
+            maxOutputTokens
         });
         // #endregion
         let resp;

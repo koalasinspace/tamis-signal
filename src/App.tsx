@@ -104,6 +104,27 @@ async function generateDailyTruth(
   const today = todayDateString();
   if (user.dailyTruth?.date === today) return;
 
+  // Validate required soulprint fields before generating
+  if (!user.name || !user.zodiacSign || !user.tarotArchetype || !user.favoriteColor || !user.birthPlace || user.destinyNumber === 0) {
+    console.error("[generateDailyTruth] Missing required soulprint fields", {
+      hasName: !!user.name,
+      hasZodiac: !!user.zodiacSign,
+      hasTarot: !!user.tarotArchetype,
+      hasColor: !!user.favoriteColor,
+      hasBirthPlace: !!user.birthPlace,
+      hasDestinyNumber: user.destinyNumber !== 0
+    });
+    // Set a fallback message instead of failing silently
+    const fallbackMessage = "Your soulprint is still forming. Complete your profile to receive daily truths.";
+    const updated: UserProfile = {
+      ...user,
+      dailyTruth: { date: today, message: fallbackMessage },
+    };
+    await setDoc(doc(db, "users", uid), { dailyTruth: { date: today, message: fallbackMessage } }, { merge: true }).catch(() => {});
+    setUserData(updated);
+    return;
+  }
+
   const planetaryRuler = user.planetaryRuler ?? (user.birthday ? getPlanetaryRuler(user.birthday) : "");
   const chineseZodiac = user.chineseZodiac ?? (user.birthday ? getChineseZodiac(user.birthday) : "");
   const chineseElement = user.chineseElement ?? (user.birthday ? getChineseElement(user.birthday) : "");
@@ -111,20 +132,21 @@ async function generateDailyTruth(
   const moonPhase = user.moonPhase ?? (user.birthday ? getMoonPhase(user.birthday) : "");
   const celticTree = user.celticTree ?? (user.birthday ? getCelticTree(user.birthday) : "");
 
+  // Use safe string interpolation with fallbacks
   const soulBlueprint = `
-- Zodiac: ${user.zodiacSign}
-- Destiny Number: ${user.destinyNumber}
-- Tarot Archetype: ${user.tarotArchetype}
-- Power Color: ${user.favoriteColor}
-- Birthplace: ${user.birthPlace}
-- Life Path: ${lifePath}
-- Planetary Ruler: ${planetaryRuler}
-- Chinese Zodiac: ${chineseElement} ${chineseZodiac}
-- Moon Phase: ${moonPhase}
-- Celtic Tree: ${celticTree}
+- Zodiac: ${user.zodiacSign || "Unknown"}
+- Destiny Number: ${user.destinyNumber || 0}
+- Tarot Archetype: ${user.tarotArchetype || "Unknown"}
+- Power Color: ${user.favoriteColor || "Unknown"}
+- Birthplace: ${user.birthPlace || "Unknown"}
+- Life Path: ${lifePath || 0}
+- Planetary Ruler: ${planetaryRuler || "Unknown"}
+- Chinese Zodiac: ${chineseElement || ""} ${chineseZodiac || ""}
+- Moon Phase: ${moonPhase || "Unknown"}
+- Celtic Tree: ${celticTree || "Unknown"}
 `.trim();
 
-  const prompt = `You are a mystical, tough-love oracle. Generate a Daily Truth for ${user.name}.
+  const prompt = `You are a mystical, tough-love oracle. Generate a Daily Truth for ${user.name || "the seeker"}.
 
 THEIR SOULPRINT:
 ${soulBlueprint}
@@ -134,7 +156,7 @@ DATE: ${today}
 INSTRUCTIONS: Connect their specific pillars to the current date. Give them ONE hard truth they need to hear today to align with their destiny. Be direct, short (under 50 words), and visceral. No fluff.`;
 
   try {
-    const result = await oracleGenerate({ prompt });
+    const result = await oracleGenerate({ prompt, requestType: "dailyTruth" });
     const message =
       (result.data as any)?.text?.trim?.() ||
       "The void is silent today.";
@@ -153,7 +175,18 @@ INSTRUCTIONS: Connect their specific pillars to the current date. Give them ONE 
       fullError: error
     });
     // #endregion
-    // Leave existing dailyTruth or empty; could set a fallback message
+    // Set fallback message on error
+    const fallbackMessage = "The void is silent today. The connection to the oracle is weak—try again later.";
+    const updated: UserProfile = {
+      ...user,
+      dailyTruth: { date: today, message: fallbackMessage },
+    };
+    try {
+      await setDoc(doc(db, "users", uid), { dailyTruth: { date: today, message: fallbackMessage } }, { merge: true });
+      setUserData(updated);
+    } catch (dbError) {
+      console.error("[generateDailyTruth] Failed to save fallback message", dbError);
+    }
   }
 }
 
@@ -224,7 +257,7 @@ function Dashboard() {
     generateDailyTruth(userData, currentUser.uid, setUserData).finally(() => {
       setIsGeneratingDailyTruth(false);
     });
-  }, [currentUser?.uid, userData]);
+  }, [currentUser?.uid, userData, setUserData]);
 
   useEffect(() => {
     if (activeTab === "dev" && role !== "admin") setActiveTab("daily");
@@ -256,6 +289,13 @@ function Dashboard() {
 
   const handleGuidanceRequest = async () => {
     if (!guidanceQuery.trim() || !userData) return;
+    
+    // Validate required soulprint fields
+    if (!userData.name || !userData.zodiacSign || !userData.tarotArchetype || !userData.favoriteColor || !userData.birthPlace || userData.destinyNumber === 0) {
+      setGuidanceResponse("Your soulprint is incomplete. Complete your profile to receive guidance.");
+      return;
+    }
+    
     setShowUpsellCard(false);
     setIsGenerating(true);
     const queryLower = guidanceQuery.toLowerCase();
@@ -268,7 +308,7 @@ function Dashboard() {
         ? `RECENT SHADOW ENERGY (their last ${lastThree.length} journal reflection(s)—use to inform your reading, never cite literally):\n${lastThree
             .map(
               (e) =>
-                `[${e.date}] Prompt: ${e.prompt}\nReflection: ${e.entry}`
+                `[${e.date || "Unknown date"}] Prompt: ${e.prompt || "No prompt"}\nReflection: ${e.entry || "No reflection"}`
             )
             .join("\n\n")}`
         : "";
@@ -277,12 +317,12 @@ function Dashboard() {
       You are a mystical, tough-love oracle named Tami.
       
       USER SOULPRINT:
-      - Name: ${userData.name}
-      - Zodiac: ${userData.zodiacSign}
-      - Birthplace: ${userData.birthPlace} (Use the 'spirit of this place' or geomancy in your metaphor)
-      - Numerology Destiny Number: ${userData.destinyNumber} (This defines their life path)
-      - Tarot Archetype: ${userData.tarotArchetype} (This is their guiding energy card)
-      - Power Color: ${userData.favoriteColor} (Use this color's chakra/elemental meaning)
+      - Name: ${userData.name || "Unknown"}
+      - Zodiac: ${userData.zodiacSign || "Unknown"}
+      - Birthplace: ${userData.birthPlace || "Unknown"} (Use the 'spirit of this place' or geomancy in your metaphor)
+      - Numerology Destiny Number: ${userData.destinyNumber || 0} (This defines their life path)
+      - Tarot Archetype: ${userData.tarotArchetype || "Unknown"} (This is their guiding energy card)
+      - Power Color: ${userData.favoriteColor || "Unknown"} (Use this color's chakra/elemental meaning)
       
       DEEP SOUL CONTEXT:
       - Life Path: ${userData.lifePathNumber ?? ""} (The karmic road they must walk)
@@ -305,8 +345,8 @@ function Dashboard() {
     `;
     try {
       const text =
-        ((await oracleGenerate({ prompt })).data as any)?.text ||
-        "The void is silent.";
+        ((await oracleGenerate({ prompt, requestType: "guidance" })).data as any)?.text ||
+        "The void is silent today.";
       setGuidanceResponse(text);
       if (hasAnxietyKeyword) setShowUpsellCard(true);
     } catch (error: any) {
