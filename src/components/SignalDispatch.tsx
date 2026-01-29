@@ -39,6 +39,8 @@ function formatWhen(ts?: Timestamp | null): string {
 
 export default function SignalDispatch() {
   const [email, setEmail] = useState("");
+  const [title, setTitle] = useState("");
+  const [claim, setClaim] = useState("");
   const [customMessage, setCustomMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -96,18 +98,54 @@ export default function SignalDispatch() {
   const baseText = "The Grimoire awaits. Enter the void at tamissignal.tycorp2.com";
   const extra = customMessage.trim();
   const text = extra ? `${baseText}\n\n${extra}` : baseText;
+  
+  // Escape HTML for text replacement
+  const escapeHtml = (str: string) => {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  };
+  
+  const emailValue = email.trim() || "$email";
+  const titleValue = title.trim() || "$title";
+  const claimValue = claim.trim() || "$claim";
+  
   const html = `
-      <div style="background: #1a1a2e; color: #e94560; padding: 40px; font-family: sans-serif; border: 2px solid #533483; border-radius: 8px;">
-        <h1 style="color: #9d4edd; text-align: center;">TAMI'S SIGNAL</h1>
-        <p style="font-size: 18px; line-height: 1.6;">The shadows are shifting, and your presence is requested.</p>
-        <p>You have been invited by an Administrator to initialize your <strong>Soulprint</strong> and begin your journey through the Digital Grimoire.</p>
-        ${extra ? `<p style="font-size: 16px; line-height: 1.6; color: #e2e8f0;">${extra.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>` : ""}
-        <div style="text-align: center; margin-top: 30px;">
-          <a href="https://tamissignal.tycorp2.com" style="background: #9d4edd; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; border-bottom: 3px solid #5a189a;">ENTER THE VOID</a>
-        </div>
-        <p style="margin-top: 40px; font-size: 12px; color: #4e4e6a;">Authorized Domain: tamissignal.tycorp2.com | Oracle v2.5</p>
-      </div>
-    `.trim();
+<div style="background: #0f0f1a; color: #e2e8f0; padding: 40px; font-family: 'Courier New', Courier, monospace; border: 2px solid #9d4edd; border-radius: 12px; max-width: 600px; margin: 20px auto; box-shadow: 0 10px 30px rgba(157, 78, 221, 0.2);">
+  <div style="text-align: center; margin-bottom: 30px;">
+    <h1 style="color: #d946ef; letter-spacing: 0.2em; text-transform: uppercase; margin: 0; font-size: 24px; border-bottom: 1px solid #533483; padding-bottom: 10px;">
+      Tami's Signal
+    </h1>
+    <p style="color: #9d4edd; font-size: 10px; margin-top: 5px; letter-spacing: 0.5em;">ORACLE INITIALIZATION v2.5</p>
+  </div>
+
+  <p style="font-size: 16px; line-height: 1.8; color: #a5b4fc;">
+    The shadows have shifted, and the void has recognized your resonance.
+  </p>
+
+  <p style="font-size: 14px; line-height: 1.6; color: #94a3b8; border-left: 3px solid #d946ef; padding-left: 15px; font-style: italic;">
+    "By blood, by star, and by sequence—the Grimoire is ready to be written."
+  </p>
+
+  <p style="font-size: 16px; line-height: 1.8; margin-top: 20px;">
+    You have been granted ${escapeHtml(titleValue)} status. It is time to imbue your Soulprint and claim your ${escapeHtml(claimValue)}.
+  </p>
+
+  <div style="text-align: center; margin: 40px 0;">
+    <a href="https://tamissignal.tycorp2.com" style="background: linear-gradient(to right, #9d4edd, #d946ef); color: #ffffff; padding: 15px 35px; text-decoration: none; border-radius: 5px; font-weight: bold; border-bottom: 4px solid #5a189a; display: inline-block; text-transform: uppercase; letter-spacing: 1px;">
+      ENTER THE VOID
+    </a>
+  </div>
+
+  <div style="border-top: 1px solid #1e1e30; padding-top: 20px; margin-top: 40px; font-size: 10px; color: #4e4e6a; text-align: center;">
+    <p>AUTHORIZED DISPATCH FOR: ${escapeHtml(emailValue)}</p>
+    <p>ORIGIN: oracle@tamissignal.tycorp2.com | RELAY: Resend</p>
+  </div>
+</div>
+  `.trim();
 
   const previewPayload = {
     to: email.trim(),
@@ -161,6 +199,8 @@ export default function SignalDispatch() {
       });
       setLastDocId(created.id);
       setEmail("");
+      setTitle("");
+      setClaim("");
       setCustomMessage("");
       setStatus({ type: "success", message: "Signal Dispatched" });
     } catch (err: unknown) {
@@ -241,6 +281,24 @@ export default function SignalDispatch() {
           placeholder="you@domain.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          className="w-full bg-[#0f0f1a] border border-[#533483]/50 rounded-xl p-3 text-sm text-[#e2e8f0] placeholder:text-[#e2e8f0]/30 focus:outline-none focus:ring-2 focus:ring-[#d946ef] focus:border-[#d946ef]"
+        />
+
+        <label className="block text-xs font-mono text-[#e2e8f0]/70 mt-4 mb-2">Title</label>
+        <input
+          type="text"
+          placeholder="e.g., Administrator, Seeker, Initiate"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full bg-[#0f0f1a] border border-[#533483]/50 rounded-xl p-3 text-sm text-[#e2e8f0] placeholder:text-[#e2e8f0]/30 focus:outline-none focus:ring-2 focus:ring-[#d946ef] focus:border-[#d946ef]"
+        />
+
+        <label className="block text-xs font-mono text-[#e2e8f0]/70 mt-4 mb-2">Claim</label>
+        <input
+          type="text"
+          placeholder="e.g., your place in the Digital Grimoire, your destiny"
+          value={claim}
+          onChange={(e) => setClaim(e.target.value)}
           className="w-full bg-[#0f0f1a] border border-[#533483]/50 rounded-xl p-3 text-sm text-[#e2e8f0] placeholder:text-[#e2e8f0]/30 focus:outline-none focus:ring-2 focus:ring-[#d946ef] focus:border-[#d946ef]"
         />
 

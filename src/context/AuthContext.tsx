@@ -38,24 +38,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/e6210c2a-f7f1-4292-a851-ae35264b57ce',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:40',message:'Setting up auth listener',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     const unsubscribe = onAuthStateChanged(
       auth,
       async (user: FirebaseUser | null) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/e6210c2a-f7f1-4292-a851-ae35264b57ce',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:43',message:'Auth state changed',data:{hasUser:!!user,userId:user?.uid?.substring(0,8)||'none'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
         setCurrentUser(user);
         if (user) {
           const docRef = doc(db, "users", user.uid);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const data = docSnap.data() as UserProfile;
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/e6210c2a-f7f1-4292-a851-ae35264b57ce',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:54',message:'User data loaded',data:{soulprintComplete:data.soulprintComplete,destinyNumber:data.destinyNumber,hasDestinyNumber:data.destinyNumber!=null,userId:user.uid.substring(0,8),dataKeys:Object.keys(data)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-            // #endregion
             const desiredRole = determineRole(user.email);
             const currentRole = (data as any).role as UserProfile["role"] | undefined;
             if (!currentRole || currentRole !== desiredRole) {
@@ -77,9 +68,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       },
       (error: any) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/e6210c2a-f7f1-4292-a851-ae35264b57ce',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:67',message:'Auth error in listener',data:{error:error?.message||String(error),code:error?.code,apiKeyError:error?.message?.includes('api-key')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
         setLoading(false);
       }
     );
@@ -97,9 +85,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/e6210c2a-f7f1-4292-a851-ae35264b57ce',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:80',message:'SignIn attempt',data:{email:email.substring(0,10)+'...'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const role = determineRole(userCredential.user.email ?? email);
       try {
@@ -108,9 +93,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // ignore
       }
     } catch (error: any) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/e6210c2a-f7f1-4292-a851-ae35264b57ce',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:88',message:'SignIn error',data:{error:error?.message||String(error),code:error?.code,apiKeyError:error?.message?.includes('api-key')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
       throw error;
     }
   };
