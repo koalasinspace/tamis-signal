@@ -64,11 +64,13 @@ import {
   logGenerativeError,
   logGenerativeValidationFailure,
 } from "./lib/generativeLogger";
-import PILLARS_MD from "../context/pillars.md?raw";
-import TAMI_PERSONA_MD from "../context/tami_persona.md?raw";
-import ORACLE_PERSONA_MD from "../context/oracle_persona.md?raw";
-import { calculateEntanglement, calculateSoulTone } from "./utils/sonification";
+import { calculateEntanglement } from "./utils/sonification";
 import { useCosmicAudio } from "./hooks/useCosmicAudio";
+import {
+  buildSystemInstruction,
+  enrichUserForOracle,
+  estimateEntropyScore,
+} from "./lib/oraclePrompt";
 
 const todayDateString = () =>
   new Date().toISOString().slice(0, 10);
@@ -108,42 +110,6 @@ const HIGH_ANXIETY_KEYWORDS = [
 ];
 
 const oracleGenerate = httpsCallable(functions, "oracleGenerate");
-
-function personaDocsFor(mode: UserProfile["personaMode"] | undefined) {
-  return (mode ?? "tami") === "oracle" ? ORACLE_PERSONA_MD : TAMI_PERSONA_MD;
-}
-
-function estimateEntropyScore(user: UserProfile, opts?: { anxietyBoost?: boolean }) {
-  // 0..100 (higher = more entropy/static). Keep conservative until a real model exists.
-  let score = typeof user.entropyScore === "number" ? user.entropyScore : 50;
-  const entries = user.journalEntries ?? [];
-  if (entries.length === 0) score += 10;
-  if (entries.length >= 3) score -= 5;
-  if (opts?.anxietyBoost) score += 15;
-  return Math.max(0, Math.min(100, score));
-}
-
-function buildSystemInstruction(user: UserProfile, entropyScore: number) {
-  const soulTone = calculateSoulTone(user);
-  const ent = calculateEntanglement(entropyScore);
-  const personaDocs = personaDocsFor(user.personaMode);
-
-  const systemNote = `System Note: User's Frequency is ${soulTone.fCoreHz.toFixed(
-    2
-  )}Hz. P=${soulTone.pValue.toFixed(2)}. Entanglement is ${Math.round(
-    ent.entanglementPercent
-  )}% (${ent.label}).`;
-
-  return [
-    "SYSTEM INSTRUCTION (read-only):",
-    PILLARS_MD.trim(),
-    "",
-    personaDocs.trim(),
-    "",
-    systemNote,
-    "",
-  ].join("\n");
-}
 
 async function generateDailyTruth(
   user: UserProfile,
@@ -196,17 +162,14 @@ async function generateDailyTruth(
   const moonPhase = user.moonPhase ?? (user.birthday ? getMoonPhase(user.birthday) : "");
   const celticTree = user.celticTree ?? (user.birthday ? getCelticTree(user.birthday) : "");
 
-  const enrichedUser: UserProfile = {
-    ...user,
+  const enrichedUser = enrichUserForOracle(user, {
     planetaryRuler,
     chineseZodiac,
     chineseElement,
     lifePathNumber: lifePath,
     moonPhase,
     celticTree,
-    personaMode: user.personaMode ?? "tami",
-    dnaTrait: user.dnaTrait ?? "Unknown",
-  };
+  });
 
   const entropyScore = estimateEntropyScore(enrichedUser);
   const systemInstruction = buildSystemInstruction(enrichedUser, entropyScore);
@@ -468,17 +431,14 @@ function Dashboard() {
     const moonPhase = userData.moonPhase ?? (userData.birthday ? getMoonPhase(userData.birthday) : "Unknown");
     const celticTree = userData.celticTree ?? (userData.birthday ? getCelticTree(userData.birthday) : "Unknown");
 
-    const enrichedUser: UserProfile = {
-      ...userData,
+    const enrichedUser = enrichUserForOracle(userData, {
       planetaryRuler,
       chineseZodiac,
       chineseElement,
       lifePathNumber: lifePath,
       moonPhase,
       celticTree,
-      personaMode: userData.personaMode ?? "tami",
-      dnaTrait: userData.dnaTrait ?? "Unknown",
-    };
+    });
 
     const entropyScore = estimateEntropyScore(enrichedUser, { anxietyBoost: hasAnxietyKeyword });
     const systemInstruction = buildSystemInstruction(enrichedUser, entropyScore);
