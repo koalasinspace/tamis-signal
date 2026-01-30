@@ -12,8 +12,18 @@ export interface UserProfile {
   personaMode?: "tami" | "oracle"; // which persona voice to use for generative features
   soulprintComplete?: boolean;
   birthday: string;
+  /** Required for Rising Sign / Secret Animal (HH:MM). */
   birthTime: string;
-  birthPlace: string;
+  /**
+   * Required for Geomancy/Nature. City/Country string.
+   * Backward compatible with older `birthPlace` field.
+   */
+  birthLocation: string;
+  /**
+   * Legacy field kept for backward compatibility with existing Firestore docs.
+   * Prefer `birthLocation`.
+   */
+  birthPlace?: string;
   zodiacSign: string;
   favoriteColor: string;
   favoriteNumber: string;
@@ -25,7 +35,23 @@ export interface UserProfile {
   lifePathNumber?: number;
   moonPhase?: string;
   celticTree?: string;
-  dnaTrait?: "Warrior" | "Worrier" | "Unknown"; // optional until DNA integration exists
+  monologueStyle?: "Verbal" | "Visual" | "Anendophasic" | "Musical" | "Anauralic";
+  /**
+   * Optional manual entry for now (DNA integration later).
+   * These values are used for inference (sonification + weave checks).
+   */
+  helixTraits?: {
+    comtStatus?: "Warrior (Met/Met)" | "Worrier (Val/Val)" | "Balanced" | "Unknown";
+    drd4Status?: "Seeker (7R+)" | "Settler (No 7R)" | "Unknown";
+    oxtrStatus?: "Empath (GG)" | "Lone Wolf (AA)" | "Unknown";
+    bdnfStatus?: "Plastic (Val/Val)" | "Rigid (Met Carrier)" | "Unknown";
+    faahStatus?: "Stoic (A Carrier)" | "Sensitive (CC)" | "Unknown";
+  };
+  /**
+   * Legacy field kept for backward compatibility with earlier sonification prototype.
+   * Prefer `helixTraits.comtStatus`.
+   */
+  dnaTrait?: "Warrior" | "Worrier" | "Unknown";
   dailyTruth?: {
     date: string; // "YYYY-MM-DD"
     message: string;
@@ -50,6 +76,7 @@ export function createMinimalProfile(
     soulprintComplete: false,
     birthday: "",
     birthTime: "",
+    birthLocation: "",
     birthPlace: "",
     zodiacSign: "",
     favoriteColor: "",
@@ -63,6 +90,14 @@ export function createMinimalProfile(
     moonPhase: "",
     celticTree: "",
     dnaTrait: "Unknown",
+    monologueStyle: "Verbal",
+    helixTraits: {
+      comtStatus: "Unknown",
+      drd4Status: "Unknown",
+      oxtrStatus: "Unknown",
+      bdnfStatus: "Unknown",
+      faahStatus: "Unknown",
+    },
     subscriptionTier: "Free",
     joinDate: new Date().toISOString(),
   };

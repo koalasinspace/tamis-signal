@@ -23,7 +23,11 @@ export function estimateEntropyScore(user: UserProfile, opts?: EntropyEstimation
   return Math.max(0, Math.min(100, score));
 }
 
-export function buildSystemInstruction(user: UserProfile, entropyScore: number) {
+export function buildSystemInstruction(
+  user: UserProfile,
+  entropyScore: number,
+  opts?: { weaveReport?: string | null }
+) {
   const soulTone = calculateSoulTone(user);
   const ent = calculateEntanglement(entropyScore);
   const personaDocs = personaDocsFor(user.personaMode);
@@ -41,6 +45,7 @@ export function buildSystemInstruction(user: UserProfile, entropyScore: number) 
     personaDocs.trim(),
     "",
     systemNote,
+    opts?.weaveReport ? `\n${opts.weaveReport.trim()}\n` : "",
     "",
   ].join("\n");
 }

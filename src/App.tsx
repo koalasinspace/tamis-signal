@@ -71,6 +71,7 @@ import {
   enrichUserForOracle,
   estimateEntropyScore,
 } from "./lib/oraclePrompt";
+import { generateWeaveReport } from "./lib/soul_weaver";
 
 const todayDateString = () =>
   new Date().toISOString().slice(0, 10);
@@ -172,7 +173,8 @@ async function generateDailyTruth(
   });
 
   const entropyScore = estimateEntropyScore(enrichedUser);
-  const systemInstruction = buildSystemInstruction(enrichedUser, entropyScore);
+  const weaveReport = await generateWeaveReport(enrichedUser).catch(() => null);
+  const systemInstruction = buildSystemInstruction(enrichedUser, entropyScore, { weaveReport });
 
   // Build Shadow Energy from recent journal entries
   const allEntries = user.journalEntries ?? [];
@@ -441,7 +443,8 @@ function Dashboard() {
     });
 
     const entropyScore = estimateEntropyScore(enrichedUser, { anxietyBoost: hasAnxietyKeyword });
-    const systemInstruction = buildSystemInstruction(enrichedUser, entropyScore);
+    const weaveReport = await generateWeaveReport(enrichedUser).catch(() => null);
+    const systemInstruction = buildSystemInstruction(enrichedUser, entropyScore, { weaveReport });
 
     const prompt = `${systemInstruction}
 
