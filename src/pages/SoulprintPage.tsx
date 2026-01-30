@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Palette, Hash } from "lucide-react";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "../context/AuthContext";
 import type { UserProfile } from "../lib/types";
+import { useCosmicAudio, type CosmicPerspective } from "../hooks/useCosmicAudio";
+import { generateWeaveReport } from "../lib/soul_weaver";
 import {
   calculateDestinyNumber,
   getTarotArchetype,
@@ -22,6 +24,10 @@ export default function SoulprintPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [perspective, setPerspective] = useState<CosmicPerspective>("mystic");
+  const [ritualStarted, setRitualStarted] = useState(false);
+  const [ritualLoading, setRitualLoading] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [form, setForm] = useState({
     name: "",
     birthday: "",
@@ -41,6 +47,218 @@ export default function SoulprintPage() {
   });
 
   const isEditing = Boolean(userData?.soulprintComplete || (userData?.birthday && userData?.destinyNumber != null));
+
+  const derived = useMemo(() => {
+    // Derive as much as we can from current form for live synth + weave preview.
+    const birthday = form.birthday;
+    const name = form.name;
+    const zodiacSign = birthday ? getZodiacSign(birthday) : "";
+    const planetaryRuler = birthday ? getPlanetaryRuler(birthday) : "";
+    const chineseZodiac = birthday ? getChineseZodiac(birthday) : "";
+    const chineseElement = birthday ? getChineseElement(birthday) : "";
+    const lifePathNumber = birthday ? calculateLifePath(birthday) : 0;
+    const moonPhase = birthday ? getMoonPhase(birthday) : "";
+    const celticTree = birthday ? getCelticTree(birthday) : "";
+    const destinyNumber = name ? calculateDestinyNumber(name) : 0;
+    const tarotArchetype = form.favoriteNumber ? getTarotArchetype(String(form.favoriteNumber)) : "";
+    return {
+      zodiacSign,
+      planetaryRuler,
+      chineseZodiac,
+      chineseElement,
+      lifePathNumber,
+      moonPhase,
+      celticTree,
+      destinyNumber,
+      tarotArchetype,
+    };
+  }, [form.birthday, form.favoriteNumber, form.name]);
+
+  const cosmicAudio = useCosmicAudio({
+    perspective,
+    planetaryRuler: derived.planetaryRuler || userData?.planetaryRuler,
+    zodiacSign: derived.zodiacSign || userData?.zodiacSign,
+    destinyNumber: derived.destinyNumber || userData?.destinyNumber,
+    comtStatus: form.helixTraits.comtStatus || userData?.helixTraits?.comtStatus,
+    monologueStyle: form.monologueStyle || userData?.monologueStyle,
+    volume: perspective === "architect" ? 0.1 : 0.12,
+    layer: ritualStarted ? step : 0,
+  });
+
+  useEffect(() => {
+    cosmicAudio.setConfig({
+      perspective,
+      planetaryRuler: derived.planetaryRuler || userData?.planetaryRuler,
+      zodiacSign: derived.zodiacSign || userData?.zodiacSign,
+      destinyNumber: derived.destinyNumber || userData?.destinyNumber,
+      comtStatus: form.helixTraits.comtStatus || userData?.helixTraits?.comtStatus,
+      monologueStyle: form.monologueStyle || userData?.monologueStyle,
+      volume: perspective === "architect" ? 0.1 : 0.12,
+      layer: ritualStarted ? step : 0,
+    });
+  }, [
+    cosmicAudio,
+    derived.destinyNumber,
+    derived.planetaryRuler,
+    derived.zodiacSign,
+    form.helixTraits.comtStatus,
+    form.monologueStyle,
+    perspective,
+    ritualStarted,
+    step,
+    userData?.destinyNumber,
+    userData?.helixTraits?.comtStatus,
+    userData?.monologueStyle,
+    userData?.planetaryRuler,
+    userData?.zodiacSign,
+  ]);
+
+  // Canvas oscilloscope driven by analyser output.
+  useEffect(() => {
+    let raf = 0;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx2d = canvas.getContext("2d");
+    if (!ctx2d) return;
+
+    const draw = () => {
+      raf = requestAnimationFrame(draw);
+      const buf = cosmicAudio.getTimeDomainData();
+      const w = canvas.width;
+      const h = canvas.height;
+
+      ctx2d.clearRect(0, 0, w, h);
+
+      // Background
+      ctx2d.fillStyle = "rgba(2,6,23,0.35)";
+      ctx2d.fillRect(0, 0, w, h);
+
+      // Frame
+      ctx2d.strokeStyle = "rgba(168,85,247,0.25)";
+      ctx2d.lineWidth = 1;
+      ctx2d.strokeRect(0.5, 0.5, w - 1, h - 1);
+
+      if (!buf || !ritualStarted || !cosmicAudio.isRunning) {
+        ctx2d.fillStyle = "rgba(148,163,184,0.7)";
+        ctx2d.font = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+        ctx2d.fillText("Signal dormant — begin the ritual to visualize.", 12, h / 2);
+        return;
+      }
+
+      ctx2d.strokeStyle = perspective === "architect" ? "rgba(56,189,248,0.9)" : "rgba(217,70,239,0.9)";
+      ctx2d.lineWidth = 2;
+      ctx2d.beginPath();
+      const slice = w / buf.length;
+      for (let i = 0; i < buf.length; i++) {
+        const v = buf[i] / 128.0; // 0..2
+        const y = (v * h) / 2;
+        const x = i * slice;
+        if (i === 0) ctx2d.moveTo(x, y);
+        else ctx2d.lineTo(x, y);
+      }
+      ctx2d.stroke();
+    };
+
+    draw();
+    return () => cancelAnimationFrame(raf);
+  }, [cosmicAudio, perspective, ritualStarted]);
+
+  const [weaveReport, setWeaveReport] = useState<string>("");
+  const [weaveLoading, setWeaveLoading] = useState(false);
+  const weaveRunRef = useRef(0);
+
+  useEffect(() => {
+    if (!userData) return;
+    const run = ++weaveRunRef.current;
+    const canWeave =
+      !!form.name &&
+      !!form.birthday &&
+      !!form.birthTime &&
+      !!form.birthLocation &&
+      !!form.favoriteNumber;
+    if (!canWeave) {
+      setWeaveReport("");
+      return;
+    }
+
+    const profileForWeave: UserProfile = {
+      ...(userData as UserProfile),
+      name: form.name,
+      birthday: form.birthday,
+      birthTime: form.birthTime,
+      birthLocation: form.birthLocation,
+      birthPlace: form.birthLocation,
+      geomancyFigure: form.geomancyFigure ? form.geomancyFigure : undefined,
+      favoriteColor: form.favoriteColor,
+      favoriteNumber: form.favoriteNumber,
+      zodiacSign: derived.zodiacSign,
+      destinyNumber: derived.destinyNumber,
+      tarotArchetype: derived.tarotArchetype,
+      planetaryRuler: derived.planetaryRuler,
+      chineseZodiac: derived.chineseZodiac,
+      chineseElement: derived.chineseElement,
+      lifePathNumber: derived.lifePathNumber,
+      moonPhase: derived.moonPhase,
+      celticTree: derived.celticTree,
+      monologueStyle: form.monologueStyle,
+      helixTraits: form.helixTraits,
+      soulprintComplete: true,
+      // keep required fields if userData is null-ish (shouldn't happen on this page)
+      email: (userData as any)?.email ?? "",
+      role: (userData as any)?.role ?? "user",
+      subscriptionTier: (userData as any)?.subscriptionTier ?? "Free",
+      joinDate: (userData as any)?.joinDate ?? new Date().toISOString(),
+    };
+
+    setWeaveLoading(true);
+    generateWeaveReport(profileForWeave)
+      .then((txt) => {
+        if (weaveRunRef.current !== run) return;
+        setWeaveReport(txt);
+      })
+      .catch(() => {
+        if (weaveRunRef.current !== run) return;
+        setWeaveReport("");
+      })
+      .finally(() => {
+        if (weaveRunRef.current !== run) return;
+        setWeaveLoading(false);
+      });
+  }, [
+    derived,
+    form.birthday,
+    form.birthLocation,
+    form.birthTime,
+    form.favoriteColor,
+    form.favoriteNumber,
+    form.geomancyFigure,
+    form.helixTraits,
+    form.monologueStyle,
+    form.name,
+    userData,
+  ]);
+
+  const ritualLine = useMemo(() => {
+    const d = cosmicAudio.getDiagnostics();
+    const base =
+      perspective === "architect"
+        ? "We are not here to reassure. We are here to measure."
+        : "We are not here to fix you. We are here to witness the interference.";
+    if (!ritualStarted) return base;
+    if (step === 1) {
+      return perspective === "architect"
+        ? "BEDROCK: establish the clock, the coordinates, the carrier."
+        : "BEDROCK: we find your anchor point and let it ring.";
+    }
+    if (step === 2) {
+      return perspective === "architect"
+        ? "ASTRAL: modulation begins. waveform and harmonic structure come online."
+        : "ASTRAL: the veil thins. the shape of your signal reveals itself.";
+    }
+    return perspective === "architect"
+      ? `INTERFACE: high-entropy layer. output protocol stabilizes. ${d ? `f₀=${d.f0Hz.toFixed(2)}Hz` : ""}`
+      : "INTERFACE: the channel opens. we listen without force.";
+  }, [cosmicAudio, perspective, ritualStarted, step]);
 
   useEffect(() => {
     if (!userData) return;
@@ -122,10 +340,20 @@ export default function SoulprintPage() {
     }
   };
 
+  const startRitual = async () => {
+    setRitualLoading(true);
+    try {
+      await cosmicAudio.start();
+      setRitualStarted(true);
+    } finally {
+      setRitualLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-purple-50 font-sans flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/40 via-slate-950 to-slate-950" />
-      <div className="bg-slate-900/80 backdrop-blur-md border border-purple-500/30 p-8 rounded-3xl w-full max-w-lg shadow-2xl relative z-10">
+      <div className="bg-slate-900/80 backdrop-blur-md border border-purple-500/30 p-8 rounded-3xl w-full max-w-2xl shadow-2xl relative z-10">
         <div className="text-center mb-6">
           <h1 className="text-3xl font-serif text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-indigo-300">
             Tuning Your Soulprint
@@ -135,12 +363,88 @@ export default function SoulprintPage() {
           </p>
         </div>
 
+        <div className="mb-5">
+          <canvas
+            ref={canvasRef}
+            width={720}
+            height={140}
+            className="w-full h-[140px] rounded-2xl border border-purple-500/20 bg-slate-950"
+          />
+          <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-xs text-slate-400">
+              <div className="font-mono text-slate-300">
+                {perspective === "architect" ? "ARCHITECT MODE • 165Hz Template" : "MYSTIC MODE • Soul Tone"}
+              </div>
+              <div>
+                {(() => {
+                  const d = cosmicAudio.getDiagnostics();
+                  if (!d) return "Synth dormant.";
+                  return `f₀=${d.f0Hz.toFixed(2)}Hz • waveform=${d.waveform} • shimmer=${d.shimmerHz ? d.shimmerHz + "Hz" : "—"} • ADSR(A=${d.envelope.attackSeconds}s)`;
+                })()}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-lg border border-slate-800 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setPerspective("mystic")}
+                  className={`px-3 py-2 text-xs font-semibold ${
+                    perspective === "mystic" ? "bg-purple-600 text-white" : "bg-slate-950 text-slate-300"
+                  }`}
+                >
+                  MYSTIC
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPerspective("architect")}
+                  className={`px-3 py-2 text-xs font-semibold ${
+                    perspective === "architect" ? "bg-cyan-600 text-white" : "bg-slate-950 text-slate-300"
+                  }`}
+                >
+                  ARCHITECT
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={ritualStarted ? cosmicAudio.stop : startRitual}
+                disabled={ritualLoading}
+                className="px-3 py-2 rounded-lg text-xs font-semibold bg-slate-950 border border-slate-800 text-slate-200 hover:bg-slate-900 disabled:opacity-50"
+              >
+                {ritualStarted ? "Silence" : ritualLoading ? "Opening…" : "Begin Ritual"}
+              </button>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            {perspective === "architect"
+              ? "We observe the system without judgment: frequency, harmonics, envelope. No coaching. Just signal."
+              : "We listen first. We don’t fix you. We reveal where the noise is bending the light."}
+          </p>
+        </div>
+
         <div className="mb-4 flex items-center justify-between text-xs text-slate-400">
           <div>
             Phase <span className="text-slate-200 font-semibold">{step}</span> / 3
           </div>
           <div className="font-mono">
-            {step === 1 ? "ANCHOR" : step === 2 ? "INTERFACE" : "HELIX"}
+            {step === 1 ? "BEDROCK" : step === 2 ? "ASTRAL" : "INTERFACE"}
+          </div>
+        </div>
+
+        <div className="mb-5 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-xs uppercase tracking-widest text-slate-500">
+                {perspective === "architect" ? "Architect Perspective" : "Mystic Perspective"}
+              </div>
+              <div className="mt-1 text-slate-200 text-sm leading-relaxed">
+                {ritualLine}
+              </div>
+            </div>
+            {!ritualStarted && (
+              <div className="text-xs text-slate-500 max-w-[12rem]">
+                Audio won’t start until you press <span className="text-slate-300">Begin Ritual</span>.
+              </div>
+            )}
           </div>
         </div>
 
@@ -430,6 +734,29 @@ export default function SoulprintPage() {
           </div>
 
         </form>
+
+        <div className="mt-6 rounded-3xl border border-purple-500/20 bg-slate-950/60 p-5">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="text-white font-serif text-lg">Current Signal Status</h2>
+            <div className="text-xs text-slate-400 font-mono">
+              {weaveLoading ? "Weaving…" : weaveReport ? "Locked" : "Waiting"}
+            </div>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Medium&apos;s Insight — a live read of resonance and dissonance. Observational. No coaching.
+          </p>
+          <div className="mt-4">
+            {weaveReport ? (
+              <pre className="text-xs leading-relaxed text-slate-200 whitespace-pre-wrap font-mono bg-slate-900/50 border border-slate-800 rounded-2xl p-4 max-h-72 overflow-auto">
+                {weaveReport}
+              </pre>
+            ) : (
+              <div className="text-sm text-slate-400 bg-slate-900/40 border border-slate-800 rounded-2xl p-4">
+                Enter your anchors (name, date, time, location, number) to generate a live weave report.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

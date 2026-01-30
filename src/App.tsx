@@ -312,17 +312,34 @@ function Dashboard() {
   // --- Sonification / Entanglement ---
   const entropyScore = userData ? estimateEntropyScore(userData) : 50;
   const entanglementSettings = calculateEntanglement(entropyScore);
-  const cosmicAudio = useCosmicAudio(entanglementSettings);
+  const cosmicAudio = useCosmicAudio({
+    perspective: "mystic",
+    planetaryRuler: userData?.planetaryRuler,
+    zodiacSign: userData?.zodiacSign,
+    destinyNumber: userData?.destinyNumber,
+    comtStatus: userData?.helixTraits?.comtStatus,
+    monologueStyle: userData?.monologueStyle,
+    volume: 0.12,
+    layer: 2,
+  });
   const [cosmicAudioEnabled, setCosmicAudioEnabled] = useState(false);
   const [cosmicAudioLoading, setCosmicAudioLoading] = useState(false);
 
   useEffect(() => {
-    cosmicAudio.setEntanglement(entanglementSettings);
+    cosmicAudio.setConfig({
+      planetaryRuler: userData?.planetaryRuler,
+      zodiacSign: userData?.zodiacSign,
+      destinyNumber: userData?.destinyNumber,
+      comtStatus: userData?.helixTraits?.comtStatus,
+      monologueStyle: userData?.monologueStyle,
+    });
   }, [
     cosmicAudio,
-    entanglementSettings.bitCrushAmount,
-    entanglementSettings.filterCutoffHz,
-    entanglementSettings.entanglementPercent,
+    userData?.planetaryRuler,
+    userData?.zodiacSign,
+    userData?.destinyNumber,
+    userData?.helixTraits?.comtStatus,
+    userData?.monologueStyle,
   ]);
 
   const makeGrimoireId = (category: string, name: string) =>
