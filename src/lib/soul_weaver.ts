@@ -6,6 +6,8 @@ function normalize(s: string) {
   return (s ?? "").toString().trim();
 }
 
+export type CreativeContextMode = "selection" | "extrapolation" | "subtraction" | "shadow";
+
 type WeaverLawHit = {
   law: string;
   compound?: string;
@@ -69,6 +71,69 @@ function inferredGeomancyFigure(profile: UserProfile): string | null {
   // Prefer explicit manual entry; otherwise leave unknown.
   const g = normalize(profile.geomancyFigure ?? "");
   return g || null;
+}
+
+function planetaryHz(planetaryRuler: string | undefined) {
+  const p = normalize(planetaryRuler ?? "").toLowerCase();
+  if (p === "sun") return 126.22;
+  if (p === "moon") return 210.42;
+  if (p === "mars") return 144.72;
+  if (p === "mercury") return 141.27;
+  if (p === "jupiter") return 183.58;
+  if (p === "venus") return 221.23;
+  if (p === "saturn") return 147.85;
+  return 126.22;
+}
+
+function masterShimmerHz(destinyNumber: number | undefined | null) {
+  if (destinyNumber === 11) return 440;
+  if (destinyNumber === 22) return 880;
+  if (destinyNumber === 33) return 1320;
+  return null;
+}
+
+function lifePathToBpm(lifePathNumber: number | undefined | null) {
+  // "Life Path BPM" master clock (bounded to musical range).
+  // Deterministic mapping: 1..33 -> 60..124 bpm (2 bpm per step).
+  const n = typeof lifePathNumber === "number" && Number.isFinite(lifePathNumber) ? lifePathNumber : 0;
+  if (n <= 0) return 60;
+  const bpm = 60 + (Math.min(33, Math.max(1, n)) - 1) * 2;
+  return Math.max(40, Math.min(160, bpm));
+}
+
+function redshiftFor(profile: UserProfile, mode: CreativeContextMode) {
+  // A simple numeric that allows the Architect matrix to display time-stretch intent.
+  // NOTE: This is a display metric; the actual scheduler uses bpm scaling.
+  const tarot = normalize(profile.tarotArchetype).toLowerCase();
+  if (tarot === "the tower" || tarot.endsWith("tower")) return 0.25;
+  if (mode === "shadow") return 0.15;
+  return 0;
+}
+
+export type WeaveMetrics = {
+  f0Hz: number;
+  shimmerHz: number | null;
+  westernElement: ReturnType<typeof getWesternElement>;
+  bpm: number;
+  secondsPerBeat: number;
+  redshiftZ: number;
+};
+
+/**
+ * Numeric "Physics Data Matrix" variables derived deterministically from profile + context.
+ */
+export function generateWeaveMetrics(
+  profile: UserProfile,
+  mode: CreativeContextMode
+): WeaveMetrics {
+  const westernElement = getWesternElement(profile.zodiacSign);
+  const f0Hz = planetaryHz(profile.planetaryRuler);
+  const shimmerHz = masterShimmerHz(profile.destinyNumber);
+  const baseBpm = lifePathToBpm(profile.lifePathNumber);
+  const bpm = mode === "extrapolation" ? Math.min(180, baseBpm * 2) : mode === "shadow" ? Math.max(30, baseBpm * 0.85) : baseBpm;
+  const secondsPerBeat = 60 / bpm;
+  const redshiftZ = redshiftFor(profile, mode);
+  return { f0Hz, shimmerHz, westernElement, bpm, secondsPerBeat, redshiftZ };
 }
 
 /**

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { UserProfile } from "../lib/types";
 import { getWesternElement } from "../lib/calculators";
+import type { CreativeContextMode } from "../lib/soul_weaver";
+import { generateWeaveMetrics } from "../lib/soul_weaver";
 
 export type CosmicPerspective = "mystic" | "architect";
 
@@ -25,6 +27,20 @@ export type CosmicSynthConfig = {
   volume?: number;
   /** Which ritual layer is currently active (0..3). */
   layer?: 0 | 1 | 2 | 3;
+  /** Creative context affects scheduling + reverse logic. */
+  contextMode?: CreativeContextMode;
+  /** Life path number drives master BPM clock when sequencing is enabled. */
+  lifePathNumber?: number;
+  /** Enables the phase2a-style scheduler. */
+  enableSequencer?: boolean;
+  /** Beat callback for UI narration. */
+  onBeat?: (e: {
+    beat: number;
+    barBeat: 0 | 1 | 2 | 3;
+    contextMode: CreativeContextMode;
+    scheduledAt: number;
+    pillars: Array<"helix" | "solar" | "zodiac" | "earth" | "monologue" | "quantum">;
+  }) => void;
 };
 
 type SynthDiagnostics = {
@@ -66,6 +82,10 @@ export function useCosmicAudio(initial?: CosmicSynthConfig): CosmicAudioControls
   const masterRef = useRef<GainNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const timeDomainRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const beatCountRef = useRef(0);
+  const nextNoteTimeRef = useRef(0);
+  const scheduledNodesRef = useRef<Array<AudioNode>>([]);
 
   // Nodes we need to update in real-time:
   const mainOscRef = useRef<OscillatorNode | null>(null);
@@ -84,7 +104,216 @@ export function useCosmicAudio(initial?: CosmicSynthConfig): CosmicAudioControls
     monologueStyle: initial?.monologueStyle,
     volume: initial?.volume,
     layer: initial?.layer ?? 0,
+    contextMode: initial?.contextMode ?? "selection",
+    lifePathNumber: initial?.lifePathNumber,
+    enableSequencer: initial?.enableSequencer ?? false,
+    onBeat: initial?.onBeat,
   });
+
+  const mkOsc = useCallback(
+    (
+      ctx: AudioContext,
+      out: AudioNode,
+      freq: number,
+      type: OscillatorType,
+      durSeconds: number,
+      vol: number,
+      whenSeconds: number
+    ) => {
+      const t = ctx.currentTime + whenSeconds;
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = type;
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.001, t + durSeconds);
+      o.connect(g);
+      g.connect(out);
+      o.start(t);
+      o.stop(t + durSeconds);
+      scheduledNodesRef.current.push(o, g);
+    },
+    []
+  );
+
+  const mkNoise = useCallback(
+    (
+      ctx: AudioContext,
+      out: AudioNode,
+      durSeconds: number,
+      vol: number,
+      whenSeconds: number,
+      filterType: BiquadFilterType | null,
+      filterFreq: number
+    ) => {
+      const t = ctx.currentTime + whenSeconds;
+      const bs = Math.max(1, Math.floor(2 * ctx.sampleRate));
+      const b = ctx.createBuffer(1, bs, ctx.sampleRate);
+      const d = b.getChannelData(0);
+      for (let i = 0; i < bs; i++) d[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource();
+      src.buffer = b;
+      src.loop = true;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.001, t + durSeconds);
+
+      let node: AudioNode = src;
+      if (filterType) {
+        const f = ctx.createBiquadFilter();
+        f.type = filterType;
+        f.frequency.value = filterFreq;
+        src.connect(f);
+        node = f;
+        scheduledNodesRef.current.push(f);
+      }
+
+      node.connect(g);
+      g.connect(out);
+      src.start(t);
+      src.stop(t + durSeconds);
+      scheduledNodesRef.current.push(src, g);
+    },
+    []
+  );
+
+  const clearScheduler = useCallback(() => {
+    if (timerRef.current != null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const stopScheduledNodes = useCallback(() => {
+    const now = ctxRef.current?.currentTime ?? 0;
+    for (const n of scheduledNodesRef.current) {
+      try {
+        // OscillatorNode / AudioScheduledSourceNode
+        (n as any).stop?.(now);
+      } catch {}
+      try {
+        n.disconnect?.();
+      } catch {}
+    }
+    scheduledNodesRef.current = [];
+  }, []);
+
+  const schedulerTick = useCallback(() => {
+    const ctx = ctxRef.current;
+    const analyser = analyserRef.current;
+    if (!ctx || !analyser) return;
+
+    const cfg = configRef.current;
+    if (!cfg.enableSequencer) return;
+
+    const lookaheadMs = 25.0;
+    const scheduleAheadSeconds = 0.1;
+
+    const metrics = generateWeaveMetrics(
+      {
+        // minimal shape for metrics
+        ...({} as UserProfile),
+        zodiacSign: cfg.zodiacSign ?? "",
+        planetaryRuler: cfg.planetaryRuler ?? "",
+        destinyNumber: cfg.destinyNumber ?? 0,
+        lifePathNumber: cfg.lifePathNumber ?? 0,
+        tarotArchetype: "",
+        name: "",
+        email: "",
+        role: "user",
+        birthday: "",
+        birthTime: "",
+        birthLocation: "",
+        favoriteColor: "",
+        favoriteNumber: "",
+        subscriptionTier: "Free",
+        joinDate: new Date().toISOString(),
+      } as unknown as UserProfile,
+      cfg.contextMode ?? "selection"
+    );
+
+    const secondsPerBeat = metrics.secondsPerBeat;
+    const bpm = metrics.bpm;
+
+    // Initialize nextNoteTime if needed.
+    if (nextNoteTimeRef.current < ctx.currentTime) {
+      nextNoteTimeRef.current = ctx.currentTime + 0.1;
+    }
+
+    const scheduleNote = () => {
+      const beatCount = beatCountRef.current;
+      const barBeat = (beatCount % 4) as 0 | 1 | 2 | 3;
+      const t = nextNoteTimeRef.current - ctx.currentTime;
+      const mode = cfg.contextMode ?? "selection";
+      const isShadow = mode === "shadow";
+
+      // --- PULSE RECOMBINATION ---
+      // Kick = Helix/Sun pillars (Beat 1; shadow flips to Beat 4)
+      if (mode !== "subtraction") {
+        if ((!isShadow && barBeat === 0) || (isShadow && barBeat === 3)) {
+          const kickBase = Math.max(30, Math.min(90, metrics.f0Hz / 2));
+          const kickVol = cfg.comtStatus?.toString().startsWith("Warrior") ? 0.9 : 0.75;
+          mkOsc(ctx, analyser, kickBase, "sine", 0.8, kickVol, t);
+          mkNoise(ctx, analyser, 0.3, 0.45, t, "lowpass", 150);
+          cfg.onBeat?.({
+            beat: beatCount,
+            barBeat,
+            contextMode: mode,
+            scheduledAt: nextNoteTimeRef.current,
+            pillars: ["helix", "solar"],
+          });
+        }
+
+        // Snare placeholder: (not requested explicitly in v2.5 mapping, keep subtle)
+        if ((!isShadow && barBeat === 2) || (isShadow && barBeat === 1)) {
+          mkNoise(ctx, analyser, 0.25, 0.35, t, "bandpass", 1800);
+        }
+
+        // Percussion = Monologue/Quantum pillars (every beat)
+        const hatHz = isShadow ? 800 : 2200 + Math.random() * 900;
+        const hatVol =
+          cfg.monologueStyle === "Anauralic" || cfg.monologueStyle === "Anendophasic" ? 0.06 : 0.1;
+        mkOsc(ctx, analyser, hatHz, "sine", 0.05, hatVol, t);
+        cfg.onBeat?.({
+          beat: beatCount,
+          barBeat,
+          contextMode: mode,
+          scheduledAt: nextNoteTimeRef.current,
+          pillars: ["monologue", "quantum"],
+        });
+      }
+
+      // Pad = Zodiac/Earth pillars (every beat, sustained)
+      const padVol = mode === "subtraction" ? 0.6 : 0.2;
+      if (mode === "selection") {
+        mkOsc(ctx, analyser, isShadow ? 150 : 100, "sine", secondsPerBeat, padVol, t);
+      } else {
+        mkNoise(ctx, analyser, secondsPerBeat, padVol * 0.5, t, isShadow ? "lowpass" : "highpass", 500);
+        mkOsc(ctx, analyser, isShadow ? 100 : 220, "sine", secondsPerBeat, padVol * 0.5, t);
+      }
+      cfg.onBeat?.({
+        beat: beatCount,
+        barBeat,
+        contextMode: mode,
+        scheduledAt: nextNoteTimeRef.current,
+        pillars: ["zodiac", "earth"],
+      });
+
+      nextNoteTimeRef.current += secondsPerBeat;
+      beatCountRef.current += 1;
+
+      // Keep UI BPM display available via diagnostics (already)
+      void bpm;
+    };
+
+    while (nextNoteTimeRef.current < ctx.currentTime + scheduleAheadSeconds) {
+      scheduleNote();
+    }
+
+    timerRef.current = window.setTimeout(schedulerTick, lookaheadMs);
+  }, [mkNoise, mkOsc]);
 
   const computeF0Hz = useCallback((cfg: CosmicSynthConfig): number => {
     const perspective = cfg.perspective ?? "mystic";
@@ -237,11 +466,22 @@ export function useCosmicAudio(initial?: CosmicSynthConfig): CosmicAudioControls
     shimmerGain.gain.linearRampToValueAtTime(targetShimmer, now + env.attackSeconds);
 
     setIsRunning(true);
+
+    // Start scheduler if enabled
+    clearScheduler();
+    beatCountRef.current = 0;
+    nextNoteTimeRef.current = ctx.currentTime + 0.1;
+    if (configRef.current.enableSequencer) {
+      schedulerTick();
+    }
   }, [computeEnvelope, computeF0Hz, computeShimmerHz, computeWaveform, isRunning]);
 
   const stop = useCallback(() => {
     const ctx = ctxRef.current;
     if (!ctx) return;
+
+    clearScheduler();
+    stopScheduledNodes();
 
     const now = ctx.currentTime;
     const release = 0.6;
@@ -326,6 +566,12 @@ export function useCosmicAudio(initial?: CosmicSynthConfig): CosmicAudioControls
       const targetShimmer = layer >= 2 ? 0.55 : 0;
       shimmerGain.gain.cancelScheduledValues(now);
       shimmerGain.gain.setTargetAtTime(targetShimmer, now, 0.06);
+    }
+
+    // Scheduler enable/disable
+    clearScheduler();
+    if (cfg.enableSequencer) {
+      schedulerTick();
     }
   }, [computeEnvelope, computeF0Hz, computeShimmerHz]);
 

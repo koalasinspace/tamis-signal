@@ -7,6 +7,8 @@ import { useAuth } from "../context/AuthContext";
 import type { UserProfile } from "../lib/types";
 import { useCosmicAudio, type CosmicPerspective } from "../hooks/useCosmicAudio";
 import { generateWeaveReport } from "../lib/soul_weaver";
+import { getDeepSoulInfo } from "../lib/librarian";
+import { generateWeaveMetrics, type CreativeContextMode } from "../lib/soul_weaver";
 import {
   calculateDestinyNumber,
   getTarotArchetype,
@@ -25,9 +27,13 @@ export default function SoulprintPage() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [perspective, setPerspective] = useState<CosmicPerspective>("mystic");
+  const [contextMode, setContextMode] = useState<CreativeContextMode>("selection");
   const [ritualStarted, setRitualStarted] = useState(false);
   const [ritualLoading, setRitualLoading] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [narration, setNarration] = useState<string>("");
+  const [librarianSnippet, setLibrarianSnippet] = useState<string>("");
+  const [librarianLoading, setLibrarianLoading] = useState(false);
   const [form, setForm] = useState({
     name: "",
     birthday: "",
@@ -79,10 +85,91 @@ export default function SoulprintPage() {
     planetaryRuler: derived.planetaryRuler || userData?.planetaryRuler,
     zodiacSign: derived.zodiacSign || userData?.zodiacSign,
     destinyNumber: derived.destinyNumber || userData?.destinyNumber,
+    lifePathNumber: derived.lifePathNumber || userData?.lifePathNumber,
     comtStatus: form.helixTraits.comtStatus || userData?.helixTraits?.comtStatus,
     monologueStyle: form.monologueStyle || userData?.monologueStyle,
     volume: perspective === "architect" ? 0.1 : 0.12,
     layer: ritualStarted ? step : 0,
+    contextMode,
+    enableSequencer: ritualStarted,
+    onBeat: (e) => {
+      // "Living Brain" narration: Tami observes the recombination in real time.
+      if (perspective === "architect") {
+        setNarration(
+          `RECOMBINATION • beat ${e.beat} • clock=${e.contextMode.toUpperCase()} • pillars=${e.pillars.join("+")}`
+        );
+      } else {
+        setNarration(
+          `We are seeing a disturbance move through ${e.pillars.join(" and ")}. Beat ${e.beat}.`
+        );
+      }
+
+      // Librarian: pull a snippet keyed to the beat's pillar emphasis.
+      // Shadow mode: bias toward "shadow" language (reversed/weakness/pathology).
+      const pick = async () => {
+        if (!ritualStarted) return;
+        const primary = e.pillars[0];
+        const mode = e.contextMode;
+        const isShadow = mode === "shadow";
+
+        const tryShadowClip = (raw: string) => {
+          const text = raw.trim();
+          if (!isShadow) return text;
+          const lines = text.split("\n");
+          const keep = lines.filter((l) => {
+            const s = l.toLowerCase();
+            return (
+              s.includes("shadow") ||
+              s.includes("reversed") ||
+              s.includes("weakness") ||
+              s.includes("pathology") ||
+              s.includes("clash") ||
+              s.includes("enemy") ||
+              s.includes("disson") ||
+              s.includes("static")
+            );
+          });
+          return (keep.length ? keep.slice(0, 12).join("\n") : text.slice(0, 600)).trim();
+        };
+
+        let pillar: Parameters<typeof getDeepSoulInfo>[0] | null = null;
+        let value = "";
+
+        if (primary === "solar") {
+          pillar = "PlanetaryRuler";
+          value = derived.planetaryRuler || userData?.planetaryRuler || "Sun";
+        } else if (primary === "helix") {
+          pillar = "Helix";
+          value = (form.helixTraits.comtStatus as any) || userData?.helixTraits?.comtStatus || "Unknown";
+        } else if (primary === "earth") {
+          pillar = "Geomancy";
+          value = form.geomancyFigure || (userData as any)?.geomancyFigure || "Carcer";
+        } else if (primary === "zodiac") {
+          pillar = "ChineseZodiac";
+          const combo = [derived.chineseElement, derived.chineseZodiac].filter(Boolean).join(" ");
+          value = combo || [userData?.chineseElement, userData?.chineseZodiac].filter(Boolean).join(" ");
+        } else if (primary === "monologue") {
+          pillar = "InnerMonologue";
+          value = form.monologueStyle || userData?.monologueStyle || "Verbal";
+        } else if (primary === "quantum") {
+          pillar = "TarotArchetype";
+          value = derived.tarotArchetype || userData?.tarotArchetype || "The Tower";
+        }
+
+        if (!pillar || !value) return;
+        setLibrarianLoading(true);
+        try {
+          const raw = await getDeepSoulInfo(pillar, value);
+          if (!raw) return;
+          setLibrarianSnippet(tryShadowClip(raw));
+        } finally {
+          setLibrarianLoading(false);
+        }
+      };
+
+      // fire-and-forget
+      pick().catch(() => {});
+    },
   });
 
   useEffect(() => {
@@ -91,27 +178,43 @@ export default function SoulprintPage() {
       planetaryRuler: derived.planetaryRuler || userData?.planetaryRuler,
       zodiacSign: derived.zodiacSign || userData?.zodiacSign,
       destinyNumber: derived.destinyNumber || userData?.destinyNumber,
+      lifePathNumber: derived.lifePathNumber || userData?.lifePathNumber,
       comtStatus: form.helixTraits.comtStatus || userData?.helixTraits?.comtStatus,
       monologueStyle: form.monologueStyle || userData?.monologueStyle,
       volume: perspective === "architect" ? 0.1 : 0.12,
       layer: ritualStarted ? step : 0,
+      contextMode,
+      enableSequencer: ritualStarted,
     });
   }, [
     cosmicAudio,
     derived.destinyNumber,
     derived.planetaryRuler,
     derived.zodiacSign,
+    derived.lifePathNumber,
     form.helixTraits.comtStatus,
     form.monologueStyle,
+    contextMode,
     perspective,
     ritualStarted,
     step,
     userData?.destinyNumber,
+    userData?.lifePathNumber,
     userData?.helixTraits?.comtStatus,
     userData?.monologueStyle,
     userData?.planetaryRuler,
     userData?.zodiacSign,
   ]);
+
+  const theme = useMemo(() => {
+    const isShadow = contextMode === "shadow";
+    return {
+      accent: isShadow ? "#f59e0b" : perspective === "architect" ? "#38bdf8" : "#d946ef",
+      border: isShadow ? "border-amber-500/30" : "border-purple-500/30",
+      bg: isShadow ? "from-amber-900/30" : "from-purple-900/40",
+      wave: isShadow ? "rgba(245,158,11,0.95)" : perspective === "architect" ? "rgba(56,189,248,0.9)" : "rgba(217,70,239,0.9)",
+    };
+  }, [contextMode, perspective]);
 
   // Canvas oscilloscope driven by analyser output.
   useEffect(() => {
@@ -145,7 +248,7 @@ export default function SoulprintPage() {
         return;
       }
 
-      ctx2d.strokeStyle = perspective === "architect" ? "rgba(56,189,248,0.9)" : "rgba(217,70,239,0.9)";
+      ctx2d.strokeStyle = theme.wave;
       ctx2d.lineWidth = 2;
       ctx2d.beginPath();
       const slice = w / buf.length;
@@ -161,7 +264,7 @@ export default function SoulprintPage() {
 
     draw();
     return () => cancelAnimationFrame(raf);
-  }, [cosmicAudio, perspective, ritualStarted]);
+  }, [cosmicAudio, perspective, ritualStarted, theme.wave]);
 
   const [weaveReport, setWeaveReport] = useState<string>("");
   const [weaveLoading, setWeaveLoading] = useState(false);
@@ -352,8 +455,8 @@ export default function SoulprintPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-purple-50 font-sans flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/40 via-slate-950 to-slate-950" />
-      <div className="bg-slate-900/80 backdrop-blur-md border border-purple-500/30 p-8 rounded-3xl w-full max-w-2xl shadow-2xl relative z-10">
+      <div className={`absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${theme.bg} via-slate-950 to-slate-950`} />
+      <div className={`bg-slate-900/80 backdrop-blur-md border ${theme.border} p-8 rounded-3xl w-full max-w-2xl shadow-2xl relative z-10`}>
         <div className="text-center mb-6">
           <h1 className="text-3xl font-serif text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-indigo-300">
             Tuning Your Soulprint
@@ -368,7 +471,7 @@ export default function SoulprintPage() {
             ref={canvasRef}
             width={720}
             height={140}
-            className="w-full h-[140px] rounded-2xl border border-purple-500/20 bg-slate-950"
+            className={`w-full h-[140px] rounded-2xl border ${contextMode === "shadow" ? "border-amber-500/25" : "border-purple-500/20"} bg-slate-950`}
           />
           <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
             <div className="text-xs text-slate-400">
@@ -384,6 +487,44 @@ export default function SoulprintPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setContextMode("selection")}
+                  className={`px-2.5 py-2 rounded-lg text-[10px] font-bold border ${
+                    contextMode === "selection" ? "border-indigo-400 bg-indigo-500/10 text-indigo-200" : "border-slate-800 bg-slate-950 text-slate-300"
+                  }`}
+                >
+                  SELECTION
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContextMode("extrapolation")}
+                  className={`px-2.5 py-2 rounded-lg text-[10px] font-bold border ${
+                    contextMode === "extrapolation" ? "border-indigo-400 bg-indigo-500/10 text-indigo-200" : "border-slate-800 bg-slate-950 text-slate-300"
+                  }`}
+                >
+                  EXTRAPOLATION
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContextMode("subtraction")}
+                  className={`px-2.5 py-2 rounded-lg text-[10px] font-bold border ${
+                    contextMode === "subtraction" ? "border-emerald-400 bg-emerald-500/10 text-emerald-200" : "border-slate-800 bg-slate-950 text-slate-300"
+                  }`}
+                >
+                  SUBTRACTION
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContextMode("shadow")}
+                  className={`px-2.5 py-2 rounded-lg text-[10px] font-bold border ${
+                    contextMode === "shadow" ? "border-amber-400 bg-amber-500/10 text-amber-200" : "border-slate-800 bg-slate-950 text-slate-300"
+                  }`}
+                >
+                  SHADOW
+                </button>
+              </div>
               <div className="inline-flex rounded-lg border border-slate-800 overflow-hidden">
                 <button
                   type="button"
@@ -421,6 +562,56 @@ export default function SoulprintPage() {
           </p>
         </div>
 
+        {perspective === "architect" && (
+          <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                Physics Data Matrix
+              </h3>
+              <div className="text-[10px] font-mono text-slate-400">
+                MODE={contextMode.toUpperCase()}
+              </div>
+            </div>
+            {(() => {
+              const metrics = generateWeaveMetrics(
+                {
+                  ...(userData as any),
+                  zodiacSign: derived.zodiacSign || userData?.zodiacSign || "",
+                  planetaryRuler: derived.planetaryRuler || userData?.planetaryRuler || "",
+                  destinyNumber: derived.destinyNumber || userData?.destinyNumber || 0,
+                  lifePathNumber: derived.lifePathNumber || userData?.lifePathNumber || 0,
+                } as UserProfile,
+                contextMode
+              );
+              const rows: Array<[string, string]> = [
+                ["Hz (f₀)", `${metrics.f0Hz.toFixed(2)} Hz`],
+                ["Shimmer", metrics.shimmerHz ? `${metrics.shimmerHz.toFixed(0)} Hz` : "—"],
+                ["Western Element", metrics.westernElement],
+                ["BPM", `${metrics.bpm.toFixed(0)} BPM`],
+                ["Seconds/Beat", `${metrics.secondsPerBeat.toFixed(3)} s`],
+                ["Redshift (z)", `${metrics.redshiftZ.toFixed(2)}`],
+              ];
+              return (
+                <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {rows.map(([k, v]) => (
+                    <div
+                      key={k}
+                      className="p-3 bg-slate-900/40 border border-slate-800 rounded-xl"
+                    >
+                      <div className="text-[9px] font-bold text-slate-500 uppercase mb-1">
+                        {k}
+                      </div>
+                      <div className="text-xs font-mono text-slate-200 truncate" title={v}>
+                        {v}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         <div className="mb-4 flex items-center justify-between text-xs text-slate-400">
           <div>
             Phase <span className="text-slate-200 font-semibold">{step}</span> / 3
@@ -446,6 +637,26 @@ export default function SoulprintPage() {
               </div>
             )}
           </div>
+          {ritualStarted && (
+            <div className={`mt-4 rounded-xl border ${contextMode === "shadow" ? "border-amber-500/20" : "border-slate-800"} bg-slate-900/30 p-3`}>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="text-[10px] uppercase tracking-widest text-slate-500">
+                  Tami (Recombination Narration)
+                </div>
+                <div className="text-[10px] font-mono text-slate-500">
+                  {librarianLoading ? "Librarian: pulling…" : librarianSnippet ? "Librarian: locked" : "Librarian: idle"}
+                </div>
+              </div>
+              <div className="mt-2 text-sm text-slate-200 leading-relaxed">
+                {narration || "The channel is open. We are listening."}
+              </div>
+              {librarianSnippet && (
+                <pre className="mt-3 text-xs whitespace-pre-wrap font-mono text-slate-200/90 max-h-40 overflow-auto bg-slate-950/40 border border-slate-800 rounded-lg p-3">
+                  {librarianSnippet}
+                </pre>
+              )}
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
