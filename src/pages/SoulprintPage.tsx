@@ -27,6 +27,7 @@ export default function SoulprintPage() {
     birthday: "",
     birthTime: "",
     birthLocation: "",
+    geomancyFigure: "" as string,
     favoriteColor: "",
     favoriteNumber: "",
     monologueStyle: "Verbal" as NonNullable<UserProfile["monologueStyle"]>,
@@ -49,6 +50,7 @@ export default function SoulprintPage() {
       birthday: userData.birthday || f.birthday,
       birthTime: userData.birthTime || f.birthTime,
       birthLocation: userData.birthLocation || userData.birthPlace || f.birthLocation,
+      geomancyFigure: (userData as any).geomancyFigure || f.geomancyFigure,
       favoriteColor: userData.favoriteColor || f.favoriteColor,
       favoriteNumber: userData.favoriteNumber || f.favoriteNumber,
       monologueStyle: userData.monologueStyle || f.monologueStyle,
@@ -66,6 +68,7 @@ export default function SoulprintPage() {
     userData?.birthTime,
     (userData as any)?.birthLocation,
     userData?.birthPlace,
+    (userData as any)?.geomancyFigure,
     userData?.favoriteColor,
     userData?.favoriteNumber,
     userData?.monologueStyle,
@@ -94,6 +97,7 @@ export default function SoulprintPage() {
         birthTime: form.birthTime,
         birthLocation: form.birthLocation,
         birthPlace: form.birthLocation, // keep legacy in sync
+        geomancyFigure: form.geomancyFigure ? form.geomancyFigure : undefined,
         favoriteColor: form.favoriteColor,
         favoriteNumber: form.favoriteNumber,
         zodiacSign: zodiac,
@@ -186,6 +190,34 @@ export default function SoulprintPage() {
                 value={form.birthLocation}
                 onChange={(e) => setForm({ ...form, birthLocation: e.target.value })}
               />
+              <div className="relative">
+                <span className="absolute -top-2 left-2 text-[10px] bg-slate-950 px-1 text-slate-500">
+                  Geomancy Figure (Optional)
+                </span>
+                <select
+                  value={form.geomancyFigure}
+                  onChange={(e) => setForm({ ...form, geomancyFigure: e.target.value })}
+                  className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 text-sm text-slate-200 focus:outline-none focus:border-purple-500"
+                >
+                  <option value="">—</option>
+                  <option value="Via">Via</option>
+                  <option value="Populus">Populus</option>
+                  <option value="Fortuna Major">Fortuna Major</option>
+                  <option value="Fortuna Minor">Fortuna Minor</option>
+                  <option value="Conjunctio">Conjunctio</option>
+                  <option value="Albus">Albus</option>
+                  <option value="Puer">Puer</option>
+                  <option value="Puella">Puella</option>
+                  <option value="Amissio">Amissio</option>
+                  <option value="Acquisitio">Acquisitio</option>
+                  <option value="Carcer">Carcer</option>
+                  <option value="Laetitia">Laetitia</option>
+                  <option value="Tristitia">Tristitia</option>
+                  <option value="Cauda Draconis">Cauda Draconis</option>
+                  <option value="Caput Draconis">Caput Draconis</option>
+                  <option value="Rubeus">Rubeus</option>
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="relative">
                   <Palette size={14} className="absolute left-3 top-3.5 text-slate-500" />
