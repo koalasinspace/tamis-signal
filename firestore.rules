@@ -11,6 +11,22 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
+    // Helper function to check user role from Firebase Auth custom claims
+    // Roles are set server-side via Cloud Functions and cannot be spoofed
+    function hasRole(role) {
+      return isAuthenticated() && request.auth.token.role == role;
+    }
+    
+    // Helper function to check if user is admin or owner
+    function isAdminOrOwner() {
+      return hasRole('admin') || hasRole('owner');
+    }
+    
+    // Helper function to check if user has elevated privileges (admin, owner, or dev)
+    function hasElevatedPrivileges() {
+      return hasRole('admin') || hasRole('owner') || hasRole('dev');
+    }
+    
     // User profiles - users can only read/write their own document
     match /users/{userId} {
       allow read: if isOwner(userId);
@@ -19,31 +35,31 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
     }
     
-    // Email invitations collection - authenticated users can read/write
-    // Note: App validates admin/owner role client-side before allowing writes
+    // Email invitations collection - server-enforced role validation
+    // Only admins and owners can send invitations
     match /artifacts/{artifactId}/public/data/mail/{mailId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated(); // App validates role client-side
+      allow create: if isAdminOrOwner();
+      allow update, delete: if isAdminOrOwner();
     }
     
-    // Dev pings collection - authenticated users can read/write
-    // Note: App validates admin/owner role client-side before allowing writes
+    // Dev pings collection - server-enforced role validation
+    // Any authenticated user can create (for feedback), but only elevated users can manage
     match /artifacts/{artifactId}/public/data/devPings/{pingId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated(); // App validates role client-side
+      allow update, delete: if hasElevatedPrivileges();
     }
     
-    // Generative logs collection - authenticated users can read/write
-    // Note: App validates admin/owner role client-side before allowing writes
+    // Generative logs collection - server-enforced role validation
+    // Any authenticated user can create logs, but only elevated users can manage
     match /artifacts/{artifactId}/public/data/generativeLogs/{logId} {
-      allow read: if isAuthenticated();
+      allow read: if hasElevatedPrivileges();
       allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated(); // App validates role client-side
+      allow update, delete: if hasElevatedPrivileges();
     }
     
-    // Deny all other access
+    // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;
     }

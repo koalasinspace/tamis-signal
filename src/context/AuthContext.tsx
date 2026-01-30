@@ -8,15 +8,46 @@ import {
   User as FirebaseUser,
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
-import { auth, db } from "../lib/firebase";
+import { httpsCallable } from "firebase/functions";
+import { auth, db, functions } from "../lib/firebase";
 import type { UserProfile } from "../lib/types";
 import { createMinimalProfile } from "../lib/types";
 
-function determineRole(email: string | null | undefined): UserProfile["role"] {
-  const normalized = (email || "").trim().toLowerCase();
-  if (normalized === "tyler@dierks.email") return "admin";
-  if (normalized === "tami@hawleymail.com") return "owner";
-  return "user";
+/**
+ * Gets user role from Firebase Auth custom claims (set server-side).
+ * If no role claim exists, calls ensureUserRole to set it (for migration).
+ * Custom claims are set by the beforeUserCreated Cloud Function for new users.
+ */
+async function getRoleFromToken(user: FirebaseUser): Promise<UserProfile["role"]> {
+  try {
+    // Check current token for role claim
+    let tokenResult = await user.getIdTokenResult(false);
+    let role = tokenResult.claims.role as UserProfile["role"] | undefined;
+    
+    // If no role in claims, call ensureUserRole to set it (migration for existing users)
+    if (!role) {
+      try {
+        const ensureUserRole = httpsCallable<unknown, { role: string; wasSet: boolean }>(functions, "ensureUserRole");
+        const result = await ensureUserRole({});
+        if (result.data.wasSet) {
+          // Role was just set, force token refresh to get new claims
+          tokenResult = await user.getIdTokenResult(true);
+          role = tokenResult.claims.role as UserProfile["role"] | undefined;
+        } else {
+          role = result.data.role as UserProfile["role"];
+        }
+      } catch (ensureError) {
+        console.error("[AuthContext] Failed to ensure role:", ensureError);
+        // Fall back to user role
+        role = "user";
+      }
+    }
+    
+    return role || "user";
+  } catch (error) {
+    console.error("[AuthContext] Failed to get role from token:", error);
+    return "user";
+  }
 }
 
 type AuthContextValue = {
@@ -44,23 +75,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setCurrentUser(user);
         if (user) {
           try {
+            // Get role from Firebase Auth custom claims (server-enforced)
+            const role = await getRoleFromToken(user);
+            
             const docRef = doc(db, "users", user.uid);
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
               const data = docSnap.data() as UserProfile;
-              const desiredRole = determineRole(user.email);
-              const currentRole = (data as any).role as UserProfile["role"] | undefined;
-              if (!currentRole || currentRole !== desiredRole) {
-                try {
-                  await setDoc(doc(db, "users", user.uid), { role: desiredRole }, { merge: true });
-                  setUserData({ ...data, role: desiredRole });
-                } catch (err: unknown) {
-                  // fall back to whatever we have
-                  setUserData(data);
-                }
-              } else {
-                setUserData(data);
-              }
+              // Always use the role from custom claims (server-side truth)
+              setUserData({ ...data, role });
             } else {
               setUserData(null);
             }
@@ -87,7 +110,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       await sendEmailVerification(user);
-      const minimal = { ...createMinimalProfile(name, email), role: determineRole(email) };
+      
+      // Role is set server-side by onUserCreate Cloud Function
+      // Wait a moment for the trigger to complete, then get the role
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const role = await getRoleFromToken(user);
+      
+      const minimal = { ...createMinimalProfile(name, email), role };
       await setDoc(doc(db, "users", user.uid), minimal);
       setUserData(minimal);
     } catch (error: any) {
@@ -98,21 +127,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
           const user = userCredential.user;
           
+          // Get role from custom claims (server-side)
+          const role = await getRoleFromToken(user);
+          
           // Check if Firestore doc exists
           const docRef = doc(db, "users", user.uid);
           const docSnap = await getDoc(docRef);
           
           if (!docSnap.exists()) {
             // User exists in Auth but not Firestore - create the doc
-            const minimal = { ...createMinimalProfile(name, email), role: determineRole(email) };
+            const minimal = { ...createMinimalProfile(name, email), role };
             await setDoc(docRef, minimal);
             setUserData(minimal);
           } else {
-            // Doc exists, just update it with the new name if needed
+            // Doc exists, update with role from server
             const existing = docSnap.data() as UserProfile;
-            const updated = { ...existing, name, email, role: determineRole(email) };
-            await setDoc(docRef, updated, { merge: true });
-            setUserData(updated);
+            setUserData({ ...existing, role });
           }
         } catch (signInError: any) {
           // If sign-in fails, the password is wrong - throw original error
@@ -128,12 +158,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const role = determineRole(userCredential.user.email ?? email);
-      try {
-        await setDoc(doc(db, "users", userCredential.user.uid), { role }, { merge: true });
-      } catch (err: unknown) {
-        // ignore
-      }
+      // Role is read from custom claims during onAuthStateChanged
+      // No need to write role here - it's managed server-side
     } catch (error: any) {
       throw error;
     }

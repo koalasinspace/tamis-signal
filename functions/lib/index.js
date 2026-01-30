@@ -1,10 +1,148 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.oracleGenerate = void 0;
+exports.oracleGenerate = exports.ensureUserRole = exports.getUserRole = exports.setUserRole = exports.beforecreated = void 0;
 const v2_1 = require("firebase-functions/v2");
 const https_1 = require("firebase-functions/v2/https");
+const identity_1 = require("firebase-functions/v2/identity");
+const admin = __importStar(require("firebase-admin"));
 const google_auth_library_1 = require("google-auth-library");
+// Initialize Firebase Admin SDK
+admin.initializeApp();
 (0, v2_1.setGlobalOptions)({ region: "us-central1" });
+// Privileged email addresses - used for initial role assignment
+const PRIVILEGED_EMAILS = {
+    "tyler@dierks.email": "admin",
+    "tami@hawleymail.com": "owner",
+};
+/**
+ * Blocking function: Runs before user creation completes and can set custom claims.
+ * This is a v2 function that runs on Cloud Run (different service account).
+ * Sets role based on email for privileged users, defaults to 'user'.
+ */
+exports.beforecreated = (0, identity_1.beforeUserCreated)(async (event) => {
+    const email = event.data?.email?.toLowerCase().trim();
+    const role = (email && PRIVILEGED_EMAILS[email]) || "user";
+    console.log(`[beforeUserCreated] Setting role '${role}' for new user (${email || "no email"})`);
+    // Return custom claims to be set on the user
+    return {
+        customClaims: { role },
+    };
+});
+/**
+ * Callable function: Allows admins/owners to change user roles.
+ * Validates caller has admin/owner privileges via custom claims.
+ */
+exports.setUserRole = (0, https_1.onCall)({ timeoutSeconds: 30, memory: "128MiB" }, async (req) => {
+    // Verify caller is authenticated
+    if (!req.auth?.uid) {
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in.");
+    }
+    // Verify caller has admin or owner role (server-side check)
+    const callerRole = req.auth.token?.role;
+    if (callerRole !== "admin" && callerRole !== "owner") {
+        throw new https_1.HttpsError("permission-denied", "Only admins can modify roles.");
+    }
+    const { targetUid, role } = req.data;
+    if (!targetUid || typeof targetUid !== "string") {
+        throw new https_1.HttpsError("invalid-argument", "Missing targetUid.");
+    }
+    const validRoles = ["user", "admin", "owner", "dev"];
+    if (!role || !validRoles.includes(role)) {
+        throw new https_1.HttpsError("invalid-argument", `Invalid role. Must be one of: ${validRoles.join(", ")}`);
+    }
+    // Prevent non-owners from creating owners
+    if (role === "owner" && callerRole !== "owner") {
+        throw new https_1.HttpsError("permission-denied", "Only owners can create other owners.");
+    }
+    try {
+        await admin.auth().setCustomUserClaims(targetUid, { role });
+        console.log(`[setUserRole] ${req.auth.uid} set role '${role}' for user ${targetUid}`);
+        return { success: true, message: `Role set to '${role}'` };
+    }
+    catch (error) {
+        console.error(`[setUserRole] Failed:`, error);
+        throw new https_1.HttpsError("internal", `Failed to set role: ${error?.message || String(error)}`);
+    }
+});
+/**
+ * Callable function: Gets current user's role from custom claims.
+ * Useful for forcing a token refresh and getting the latest role.
+ */
+exports.getUserRole = (0, https_1.onCall)({ timeoutSeconds: 10, memory: "128MiB" }, async (req) => {
+    if (!req.auth?.uid) {
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in.");
+    }
+    try {
+        const user = await admin.auth().getUser(req.auth.uid);
+        const role = user.customClaims?.role || "user";
+        return { role };
+    }
+    catch (error) {
+        console.error(`[getUserRole] Failed:`, error);
+        throw new https_1.HttpsError("internal", `Failed to get role: ${error?.message || String(error)}`);
+    }
+});
+/**
+ * Callable function: Ensures the current user has custom claims set.
+ * If no role claim exists, sets based on privileged email list or defaults to 'user'.
+ * Used for migrating existing users who were created before role system was added.
+ */
+exports.ensureUserRole = (0, https_1.onCall)({ timeoutSeconds: 30, memory: "128MiB" }, async (req) => {
+    if (!req.auth?.uid) {
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in.");
+    }
+    try {
+        const user = await admin.auth().getUser(req.auth.uid);
+        // If role already set, just return it
+        if (user.customClaims?.role) {
+            return { role: user.customClaims.role, wasSet: false };
+        }
+        // Determine role based on email
+        const email = user.email?.toLowerCase().trim();
+        const role = (email && PRIVILEGED_EMAILS[email]) || "user";
+        // Set the custom claims
+        await admin.auth().setCustomUserClaims(req.auth.uid, { role });
+        console.log(`[ensureUserRole] Set role '${role}' for existing user ${req.auth.uid} (${email})`);
+        return { role, wasSet: true };
+    }
+    catch (error) {
+        console.error(`[ensureUserRole] Failed:`, error);
+        throw new https_1.HttpsError("internal", `Failed to ensure role: ${error?.message || String(error)}`);
+    }
+});
 exports.oracleGenerate = (0, https_1.onCall)({
     timeoutSeconds: 60,
     memory: "256MiB",

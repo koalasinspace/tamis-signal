@@ -861,13 +861,7 @@ function Dashboard() {
             {showUpsellCard && (
               <div className="mt-6 p-6 rounded-2xl border-2 border-amber-600/50 bg-amber-950/20 animate-in zoom-in-95 duration-300">
                 <p className="text-amber-200 font-medium mb-2">This is heavy energy. Don&apos;t navigate it alone.</p>
-                <p className="text-slate-400 text-sm mb-4">Book a 15-min emergency reading with a guide who can hold space for you.</p>
-                <button
-                  type="button"
-                  className="px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-500 transition-colors"
-                >
-                  Book 15-min emergency reading (mock)
-                </button>
+                <p className="text-slate-400 text-sm mb-4">Consider reaching out to a trusted friend, therapist, or guide who can hold space for you.</p>
               </div>
             )}
           </div>
