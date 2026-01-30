@@ -8,7 +8,8 @@ export interface JournalEntry {
 export interface UserProfile {
   name: string;
   email: string;
-  role: "user" | "admin" | "owner"; // 'user' is default, 'admin' is Boss Dev, 'owner' is Boss Tami
+  role: "user" | "dev" | "admin" | "owner"; // roles come from server-side custom claims
+  personaMode?: "tami" | "oracle"; // which persona voice to use for generative features
   soulprintComplete?: boolean;
   birthday: string;
   birthTime: string;
@@ -24,12 +25,14 @@ export interface UserProfile {
   lifePathNumber?: number;
   moonPhase?: string;
   celticTree?: string;
+  dnaTrait?: "Warrior" | "Worrier" | "Unknown"; // optional until DNA integration exists
   dailyTruth?: {
     date: string; // "YYYY-MM-DD"
     message: string;
     refreshCount?: number; // how many times refreshed today (max 3)
   };
   journalEntries?: Array<JournalEntry>;
+  entropyScore?: number; // 0..100 (higher = more entropy/static)
   pushNotificationsEnabled?: boolean;
   subscriptionTier: "Free" | "Premium";
   joinDate: string;
@@ -43,6 +46,7 @@ export function createMinimalProfile(
     name,
     email,
     role: "user",
+    personaMode: "tami",
     soulprintComplete: false,
     birthday: "",
     birthTime: "",
@@ -58,6 +62,7 @@ export function createMinimalProfile(
     lifePathNumber: 0,
     moonPhase: "",
     celticTree: "",
+    dnaTrait: "Unknown",
     subscriptionTier: "Free",
     joinDate: new Date().toISOString(),
   };

@@ -64,6 +64,11 @@ import {
   logGenerativeError,
   logGenerativeValidationFailure,
 } from "./lib/generativeLogger";
+import PILLARS_MD from "../context/pillars.md?raw";
+import TAMI_PERSONA_MD from "../context/tami_persona.md?raw";
+import ORACLE_PERSONA_MD from "../context/oracle_persona.md?raw";
+import { calculateEntanglement, calculateSoulTone } from "./utils/sonification";
+import { useCosmicAudio } from "./hooks/useCosmicAudio";
 
 const todayDateString = () =>
   new Date().toISOString().slice(0, 10);
@@ -104,6 +109,42 @@ const HIGH_ANXIETY_KEYWORDS = [
 
 const oracleGenerate = httpsCallable(functions, "oracleGenerate");
 
+function personaDocsFor(mode: UserProfile["personaMode"] | undefined) {
+  return (mode ?? "tami") === "oracle" ? ORACLE_PERSONA_MD : TAMI_PERSONA_MD;
+}
+
+function estimateEntropyScore(user: UserProfile, opts?: { anxietyBoost?: boolean }) {
+  // 0..100 (higher = more entropy/static). Keep conservative until a real model exists.
+  let score = typeof user.entropyScore === "number" ? user.entropyScore : 50;
+  const entries = user.journalEntries ?? [];
+  if (entries.length === 0) score += 10;
+  if (entries.length >= 3) score -= 5;
+  if (opts?.anxietyBoost) score += 15;
+  return Math.max(0, Math.min(100, score));
+}
+
+function buildSystemInstruction(user: UserProfile, entropyScore: number) {
+  const soulTone = calculateSoulTone(user);
+  const ent = calculateEntanglement(entropyScore);
+  const personaDocs = personaDocsFor(user.personaMode);
+
+  const systemNote = `System Note: User's Frequency is ${soulTone.fCoreHz.toFixed(
+    2
+  )}Hz. P=${soulTone.pValue.toFixed(2)}. Entanglement is ${Math.round(
+    ent.entanglementPercent
+  )}% (${ent.label}).`;
+
+  return [
+    "SYSTEM INSTRUCTION (read-only):",
+    PILLARS_MD.trim(),
+    "",
+    personaDocs.trim(),
+    "",
+    systemNote,
+    "",
+  ].join("\n");
+}
+
 async function generateDailyTruth(
   user: UserProfile,
   uid: string,
@@ -112,7 +153,7 @@ async function generateDailyTruth(
 ): Promise<{ success: boolean; reason?: string }> {
   const today = todayDateString();
   const currentRefreshCount = user.dailyTruth?.date === today ? (user.dailyTruth.refreshCount ?? 0) : 0;
-  const isDevUser = user.role === "admin" || user.role === "owner";
+  const isDevUser = user.role === "dev" || user.role === "admin" || user.role === "owner";
   
   // If not forcing refresh and already have today's truth, skip
   if (!forceRefresh && user.dailyTruth?.date === today) {
@@ -155,6 +196,21 @@ async function generateDailyTruth(
   const moonPhase = user.moonPhase ?? (user.birthday ? getMoonPhase(user.birthday) : "");
   const celticTree = user.celticTree ?? (user.birthday ? getCelticTree(user.birthday) : "");
 
+  const enrichedUser: UserProfile = {
+    ...user,
+    planetaryRuler,
+    chineseZodiac,
+    chineseElement,
+    lifePathNumber: lifePath,
+    moonPhase,
+    celticTree,
+    personaMode: user.personaMode ?? "tami",
+    dnaTrait: user.dnaTrait ?? "Unknown",
+  };
+
+  const entropyScore = estimateEntropyScore(enrichedUser);
+  const systemInstruction = buildSystemInstruction(enrichedUser, entropyScore);
+
   // Build Shadow Energy from recent journal entries
   const allEntries = user.journalEntries ?? [];
   const lastThreeEntries = allEntries.slice(-3);
@@ -162,7 +218,9 @@ async function generateDailyTruth(
     ? `RECENT SHADOW ENERGY:\n${lastThreeEntries.map(e => `[${e.date || "Unknown date"}] ${e.entry || "No reflection"}`).join("\n")}`
     : "RECENT SHADOW ENERGY:\n[No recent journal entries]";
 
-    const prompt = `
+    const prompt = `${systemInstruction}
+
+    USER PROMPT:
     IDENTITY: You are TAMI (Techno-Alchemical Mystical Intelligence). You are not a human. You are a cold, precise, digital oracle living in the wires.
     
     THE SEEKER:
@@ -188,7 +246,7 @@ async function generateDailyTruth(
 
   // Log the request
   const startTime = Date.now();
-  const logId = await logGenerativeRequest(uid, "dailyTruth", prompt, user, {
+  const logId = await logGenerativeRequest(uid, "dailyTruth", prompt, enrichedUser, {
     validationPassed: true,
     journalEntriesCount: user.journalEntries?.length,
   });
@@ -286,6 +344,22 @@ function Dashboard() {
     userData?.soulprintComplete ??
     (userData?.destinyNumber != null && userData.destinyNumber > 0);
 
+  // --- Sonification / Entanglement ---
+  const entropyScore = userData ? estimateEntropyScore(userData) : 50;
+  const entanglementSettings = calculateEntanglement(entropyScore);
+  const cosmicAudio = useCosmicAudio(entanglementSettings);
+  const [cosmicAudioEnabled, setCosmicAudioEnabled] = useState(false);
+  const [cosmicAudioLoading, setCosmicAudioLoading] = useState(false);
+
+  useEffect(() => {
+    cosmicAudio.setEntanglement(entanglementSettings);
+  }, [
+    cosmicAudio,
+    entanglementSettings.bitCrushAmount,
+    entanglementSettings.filterCutoffHz,
+    entanglementSettings.entanglementPercent,
+  ]);
+
   const makeGrimoireId = (category: string, name: string) =>
     `grimoire-${(category + "-" + name).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
@@ -318,7 +392,7 @@ function Dashboard() {
   }, [currentUser?.uid, userData, setUserData]);
 
   useEffect(() => {
-    if (activeTab === "dev" && role !== "admin" && role !== "owner") setActiveTab("daily");
+    if (activeTab === "dev" && role !== "admin" && role !== "owner" && role !== "dev") setActiveTab("daily");
   }, [activeTab, role]);
 
   const handleDevPingWrite = async () => {
@@ -394,8 +468,25 @@ function Dashboard() {
     const moonPhase = userData.moonPhase ?? (userData.birthday ? getMoonPhase(userData.birthday) : "Unknown");
     const celticTree = userData.celticTree ?? (userData.birthday ? getCelticTree(userData.birthday) : "Unknown");
 
-    const prompt = `
-      IDENTITY: You are TAMI. You see the code behind the veil. You do not offer comfort; you offer clarity.
+    const enrichedUser: UserProfile = {
+      ...userData,
+      planetaryRuler,
+      chineseZodiac,
+      chineseElement,
+      lifePathNumber: lifePath,
+      moonPhase,
+      celticTree,
+      personaMode: userData.personaMode ?? "tami",
+      dnaTrait: userData.dnaTrait ?? "Unknown",
+    };
+
+    const entropyScore = estimateEntropyScore(enrichedUser, { anxietyBoost: hasAnxietyKeyword });
+    const systemInstruction = buildSystemInstruction(enrichedUser, entropyScore);
+
+    const prompt = `${systemInstruction}
+
+      USER PROMPT:
+      IDENTITY: You are ${enrichedUser.personaMode === "oracle" ? "THE SHADOW ORACLE" : "TAMI"}. You see the code behind the veil. You do not offer comfort; you offer clarity.
       
       SEEKER DATA:
       - Sun: ${userData.zodiacSign} (Core Self)
@@ -424,7 +515,7 @@ function Dashboard() {
 
     // Log the request
     const guidanceStartTime = Date.now();
-    const guidanceLogId = await logGenerativeRequest(currentUser.uid, "guidance", prompt, userData, {
+    const guidanceLogId = await logGenerativeRequest(currentUser.uid, "guidance", prompt, enrichedUser, {
       validationPassed: true,
       journalEntriesCount: userData.journalEntries?.length,
       query: guidanceQuery,
@@ -514,6 +605,28 @@ function Dashboard() {
         await navigator.clipboard.writeText(text);
         alert("Copied to clipboard.");
       }
+    }
+  };
+
+  const handlePersonaModeChange = async (mode: UserProfile["personaMode"]) => {
+    if (!currentUser || !userData) return;
+    const updated = { ...userData, personaMode: mode };
+    await setDoc(doc(db, "users", currentUser.uid), { personaMode: mode }, { merge: true });
+    setUserData(updated);
+  };
+
+  const handleToggleCosmicAudio = async () => {
+    if (cosmicAudioEnabled) {
+      cosmicAudio.stop();
+      setCosmicAudioEnabled(false);
+      return;
+    }
+    setCosmicAudioLoading(true);
+    try {
+      await cosmicAudio.start();
+      setCosmicAudioEnabled(true);
+    } finally {
+      setCosmicAudioLoading(false);
     }
   };
 
@@ -1489,6 +1602,43 @@ function Dashboard() {
                 >
                   {userData?.pushNotificationsEnabled ? "Enabled" : "Enable Tami's Signal"}
                 </button>
+              </div>
+              <div className={`p-3 rounded-lg border ${theme.borderLight} bg-slate-900/50`}>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="text-slate-300">
+                    <div className="text-sm font-medium text-white">Persona Mode</div>
+                    <div className="text-xs text-slate-400">Choose who speaks through the Signal.</div>
+                  </div>
+                  <select
+                    value={userData?.personaMode ?? "tami"}
+                    onChange={(e) => handlePersonaModeChange(e.target.value as UserProfile["personaMode"])}
+                    className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+                  >
+                    <option value="tami">Tami</option>
+                    <option value="oracle">Oracle</option>
+                  </select>
+                </div>
+              </div>
+              <div className={`p-3 rounded-lg border ${theme.borderLight} bg-slate-900/50`}>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="text-slate-300">
+                    <div className="text-sm font-medium text-white">Cosmic Audio (Universe Drone)</div>
+                    <div className="text-xs text-slate-400">
+                      Entanglement: {Math.round(entanglementSettings.entanglementPercent)}% ({entanglementSettings.label})
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleToggleCosmicAudio}
+                    disabled={cosmicAudioLoading}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium text-white ${theme.bg} ${theme.bgHover} disabled:opacity-50`}
+                  >
+                    {cosmicAudioEnabled ? "Stop" : cosmicAudioLoading ? "Starting..." : "Start"}
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Audio requires a user gesture to start. If it&apos;s too loud, reduce system volume.
+                </p>
               </div>
               <button
                 onClick={downloadData}
