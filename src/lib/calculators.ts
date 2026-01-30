@@ -45,6 +45,17 @@ export const getZodiacSign = (dateString: string): string => {
   return "Unknown";
 };
 
+export const getWesternElement = (
+  zodiacSign: string
+): "Fire" | "Earth" | "Air" | "Water" | "Unknown" => {
+  const z = (zodiacSign || "").trim().toLowerCase();
+  if (["aries", "leo", "sagittarius"].includes(z)) return "Fire";
+  if (["taurus", "virgo", "capricorn"].includes(z)) return "Earth";
+  if (["gemini", "libra", "aquarius"].includes(z)) return "Air";
+  if (["cancer", "scorpio", "pisces"].includes(z)) return "Water";
+  return "Unknown";
+};
+
 const PLANETS_BY_DAY: Record<number, string> = {
   0: "Sun",
   1: "Moon",

@@ -1,18 +1,17 @@
 import type { UserProfile } from "./types";
 import { getDeepSoulInfo } from "./librarian";
+import { getWesternElement } from "./calculators";
 
 function normalize(s: string) {
   return (s ?? "").toString().trim();
 }
 
-function westernElementForZodiac(zodiacSign: string): "Fire" | "Earth" | "Air" | "Water" | "Unknown" {
-  const z = normalize(zodiacSign).toLowerCase();
-  if (["aries", "leo", "sagittarius"].includes(z)) return "Fire";
-  if (["taurus", "virgo", "capricorn"].includes(z)) return "Earth";
-  if (["gemini", "libra", "aquarius"].includes(z)) return "Air";
-  if (["cancer", "scorpio", "pisces"].includes(z)) return "Water";
-  return "Unknown";
-}
+type WeaverLawHit = {
+  law: string;
+  compound?: string;
+  systemStatus?: string;
+  tamiVoice?: string;
+};
 
 function secretAnimalForBirthTime(birthTime: string): string | null {
   // Chinese zodiac hour pillar (2-hour blocks).
@@ -49,36 +48,27 @@ function secretAnimalForBirthTime(birthTime: string): string | null {
   return null;
 }
 
-function helixComtClass(profile: UserProfile): "Warrior" | "Worrier" | "Balanced" | "Unknown" {
-  const c = profile.helixTraits?.comtStatus ?? "Unknown";
-  if (c.startsWith("Warrior")) return "Warrior";
-  if (c.startsWith("Worrier")) return "Worrier";
-  if (c === "Balanced") return "Balanced";
-  // legacy fallback
-  if (profile.dnaTrait === "Warrior") return "Warrior";
-  if (profile.dnaTrait === "Worrier") return "Worrier";
-  return "Unknown";
+function helixComtStatus(profile: UserProfile) {
+  return profile.helixTraits?.comtStatus ?? "Unknown";
 }
 
-function locationSignalHint(birthLocation: string): { key: string; note: string } {
-  const loc = normalize(birthLocation).toLowerCase();
-  if (!loc) return { key: "Genius Loci", note: "Location is blank; reading defaults to the Spirit of Place." };
-  if (loc.includes("island") || loc.includes("coast") || loc.includes("ocean") || loc.includes("sea")) {
-    return { key: "Genius Loci", note: "Born near water: the place-memory is tidal and reflective." };
-  }
-  if (loc.includes("mountain") || loc.includes("alps") || loc.includes("hill")) {
-    return { key: "Cardinal Directions", note: "Born in elevation: the place-memory is vertical and uncompromising." };
-  }
-  if (loc.includes("desert") || loc.includes("dune")) {
-    return { key: "Location Magic", note: "Born in dryness: the place-memory is sparse, precise, and unforgiving." };
-  }
-  if (loc.includes("forest") || loc.includes("woods") || loc.includes("jungle")) {
-    return { key: "Genius Loci", note: "Born in dense green: the place-memory is layered and alive." };
-  }
-  if (loc.includes("city") || loc.includes("nyc") || loc.includes("london") || loc.includes("tokyo")) {
-    return { key: "The Binary Soul of the Earth", note: "Born in heavy infrastructure: the place-memory is engineered and loud." };
-  }
-  return { key: "Genius Loci", note: "Birthplace treated as Genius Loci (spirit-of-place) context." };
+function helixDrd4Status(profile: UserProfile) {
+  return profile.helixTraits?.drd4Status ?? "Unknown";
+}
+
+function tarotKey(profile: UserProfile) {
+  return normalize(profile.tarotArchetype).toLowerCase();
+}
+
+function isTarotChariotFast(profile: UserProfile) {
+  // From grand_unified_theory.md: "Tarot = Chariot (Fast)"
+  return tarotKey(profile) === "the chariot" || tarotKey(profile).endsWith("chariot");
+}
+
+function inferredGeomancyFigure(profile: UserProfile): string | null {
+  // Prefer explicit manual entry; otherwise leave unknown.
+  const g = normalize(profile.geomancyFigure ?? "");
+  return g || null;
 }
 
 /**
@@ -89,11 +79,13 @@ export async function generateWeaveReport(profile: UserProfile): Promise<string>
   const lines: string[] = [];
 
   const birthLocation = profile.birthLocation || profile.birthPlace || "";
-  const westernElement = westernElementForZodiac(profile.zodiacSign);
+  const westernElement = getWesternElement(profile.zodiacSign);
   const chineseElement = normalize(profile.chineseElement || "");
   const monologueStyle = profile.monologueStyle ?? "Verbal";
-  const comt = helixComtClass(profile);
+  const comt = helixComtStatus(profile);
+  const drd4 = helixDrd4Status(profile);
   const secretAnimal = secretAnimalForBirthTime(profile.birthTime);
+  const geomancy = inferredGeomancyFigure(profile);
 
   const derivedChineseCombo = [profile.chineseElement, profile.chineseZodiac].filter(Boolean).join(" ");
 
@@ -103,64 +95,76 @@ export async function generateWeaveReport(profile: UserProfile): Promise<string>
     chineseElement ? getDeepSoulInfo("ChineseElement", chineseElement).catch(() => null) : Promise.resolve(null),
     monologueStyle ? getDeepSoulInfo("InnerMonologue", monologueStyle).catch(() => null) : Promise.resolve(null),
     profile.helixTraits?.comtStatus ? getDeepSoulInfo("Helix", profile.helixTraits.comtStatus).catch(() => null) : Promise.resolve(null),
-    getDeepSoulInfo("Geomancy", locationSignalHint(birthLocation).key).catch(() => null),
+    geomancy ? getDeepSoulInfo("Geomancy", geomancy).catch(() => null) : Promise.resolve(null),
   ]);
 
   lines.push("TAMI'S INTUITION (WEAVE REPORT):");
 
-  // 1) Ancestral Echo (Helix vs. Geomancy)
-  const locHint = locationSignalHint(birthLocation);
-  if (comt === "Warrior") {
-    lines.push(
-      `- Ancestral Echo: Your COMT pattern leans Warrior. ${locHint.note} This can read as a body that wants action inside a place that stores memory.`
-    );
-  } else if (comt === "Worrier") {
-    lines.push(
-      `- Ancestral Echo: Your COMT pattern leans Worrier. ${locHint.note} This can read as a nervous system that keeps scanning the room the earth already remembers.`
-    );
-  } else if (comt === "Balanced") {
-    lines.push(
-      `- Ancestral Echo: Your COMT pattern reads Balanced. ${locHint.note} You can tune without overcorrecting—when you let the place speak first.`
-    );
-  } else {
-    lines.push(
-      `- Ancestral Echo: Helix trait unknown. ${locHint.note} (Manual helix entry will sharpen this read.)`
-    );
+  const hits: WeaverLawHit[] = [];
+
+  // LAW 1: Elemental Dignity (grand_unified_theory.md)
+  if (westernElement === "Fire" && chineseElement === "Water") {
+    hits.push({
+      law: "The Law of Elemental Dignity",
+      compound: "STEAM",
+      systemStatus: "High Pressure.",
+      tamiVoice:
+        'You are pressurized. The Water seeks to drown the Fire; the Fire seeks to boil the Water.',
+    });
+  }
+  if (westernElement === "Earth" && chineseElement === "Metal") {
+    hits.push({
+      law: "The Law of Elemental Dignity",
+      compound: "ORE",
+      systemStatus: "High Density.",
+      tamiVoice: "You are unmovable. A mountain capping a mine.",
+    });
   }
 
-  // 2) Elemental Wound (Chinese Element vs Western Element)
-  if (westernElement !== "Unknown" && chineseElement) {
-    const overlap = ["Fire", "Water", "Earth"].includes(westernElement) && ["Fire", "Water", "Earth"].includes(chineseElement);
-    if (overlap && westernElement.toLowerCase() !== chineseElement.toLowerCase()) {
+  // LAW 2: Biological Drag (grand_unified_theory.md)
+  if (isTarotChariotFast(profile) && comt === "Worrier (Val/Val)") {
+    hits.push({
+      law: "The Law of Biological Drag",
+      systemStatus: "Drag Coefficient High.",
+      tamiVoice: "Your soul is racing, but your biology has the brakes on. Burnout is imminent.",
+    });
+  }
+
+  // LAW 3: Ancestral Echo (grand_unified_theory.md)
+  if (geomancy === "Carcer" && drd4 === "Seeker (7R+)") {
+    hits.push({
+      law: "The Law of the Ancestral Echo",
+      systemStatus: "Cage Rattle.",
+      tamiVoice:
+        "You are a nomad trapped in a grid. The anxiety you feel is just the walls closing in.",
+    });
+  }
+
+  if (hits.length) {
+    lines.push("WEAVER LAWS TRIGGERED:");
+    for (const h of hits) {
       lines.push(
-        `- Elemental Wound: Western ${westernElement} vs Wu Xing ${chineseElement}. This is a split between how you burn and how you metabolize change.`
-      );
-    } else if (westernElement.toLowerCase() === chineseElement.toLowerCase()) {
-      lines.push(
-        `- Elemental Harmony: Western ${westernElement} matches Wu Xing ${chineseElement}. The surface and the engine agree—less noise, more lock.`
-      );
-    } else {
-      lines.push(
-        `- Elemental Wound: Western ${westernElement} vs Wu Xing ${chineseElement}. These systems don't map cleanly; we treat this as a translation layer, not a contradiction.`
+        `- ${h.law}${h.compound ? ` → ${h.compound}` : ""}\n  - System Status: ${h.systemStatus}\n  - Tami Voice: "${h.tamiVoice}"`
       );
     }
   } else {
-    lines.push(`- Elemental Wound: Missing element signals (zodiac or Chinese element).`);
+    lines.push("WEAVER LAWS TRIGGERED: None (no matching interaction rules).");
   }
 
-  // 3) Chronos Glitch (Birth Time / Secret Animal vs Monologue)
+  // Context anchors (still useful for grounding)
+  lines.push(`\nPILLAR SNAPSHOT:`);
+  lines.push(`- Western Element: ${westernElement}`);
+  lines.push(`- Chinese Element: ${chineseElement || "Unknown"}`);
+  lines.push(`- Tarot: ${profile.tarotArchetype || "Unknown"}`);
+  lines.push(`- Helix COMT: ${comt}`);
+  lines.push(`- Helix DRD4: ${drd4}`);
+  lines.push(`- Geomancy Figure: ${geomancy || "Unknown"}`);
+  lines.push(`- Birth Location: ${birthLocation || "Unknown"}`);
+  lines.push(`- Inner Monologue: ${monologueStyle}`);
+
+  // Optional: Chronos detail (still helpful for tuning)
   if (secretAnimal) {
-    if (monologueStyle === "Anendophasic" || monologueStyle === "Anauralic") {
-      lines.push(
-        `- Chronos Glitch: Secret ${secretAnimal} hour, but your inner channel is ${monologueStyle}. Time wants to speak; your mind prefers silence. That mismatch creates phantom static.`
-      );
-    } else {
-      lines.push(
-        `- Chronos Glitch: Secret ${secretAnimal} hour + ${monologueStyle} inner style. Your timing and your thought-form are in communication (watch what happens at night).`
-      );
-    }
-  } else {
-    lines.push(`- Chronos Glitch: Birth time missing/invalid; Secret Animal can't be tuned yet.`);
+    lines.push(`- Secret Animal (Hour Pillar): ${secretAnimal}`);
   }
 
   // Provide short deep excerpts (truncated) so the LLM has anchors without full dumps.

@@ -48,6 +48,11 @@ export interface UserProfile {
     faahStatus?: "Stoic (A Carrier)" | "Sensitive (CC)" | "Unknown";
   };
   /**
+   * Optional manual entry for Geomancy until a real location→figure mapping exists.
+   * Used by the Weaver laws (e.g., Carcer).
+   */
+  geomancyFigure?: string;
+  /**
    * Legacy field kept for backward compatibility with earlier sonification prototype.
    * Prefer `helixTraits.comtStatus`.
    */

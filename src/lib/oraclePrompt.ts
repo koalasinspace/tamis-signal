@@ -2,6 +2,7 @@ import type { UserProfile } from "./types";
 import PILLARS_MD from "../../context/pillars.md?raw";
 import TAMI_PERSONA_MD from "../../context/tami_persona.md?raw";
 import ORACLE_PERSONA_MD from "../../context/oracle_persona.md?raw";
+import GRAND_UNIFIED_THEORY_MD from "../../context/grand_unified_theory.md?raw";
 import { calculateEntanglement, calculateSoulTone } from "../utils/sonification";
 
 export type EntropyEstimationOptions = {
@@ -38,8 +39,17 @@ export function buildSystemInstruction(
     ent.entanglementPercent
   )}% (${ent.label}).`;
 
+  // Keep only the actionable core of the Unifying Theory (Physics + Mapping + Weaver Laws).
+  const gut = GRAND_UNIFIED_THEORY_MD;
+  const start = gut.indexOf("### II.");
+  const end = gut.indexOf("### V.");
+  const unifiedCore =
+    start >= 0 && end > start ? gut.slice(start, end).trim() : gut.trim();
+
   return [
     "SYSTEM INSTRUCTION (read-only):",
+    unifiedCore,
+    "",
     PILLARS_MD.trim(),
     "",
     personaDocs.trim(),
