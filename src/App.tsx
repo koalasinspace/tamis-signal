@@ -36,6 +36,7 @@ import { useAuth } from "./context/AuthContext";
 import SignupPage from "./pages/SignupPage";
 import LoginPage from "./pages/LoginPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
+import OnboardingPage from "./pages/OnboardingPage";
 import SoulprintPage from "./pages/SoulprintPage";
 import {
   getPlanetaryRuler,
@@ -185,28 +186,26 @@ async function generateDailyTruth(
 
     const prompt = `${systemInstruction}
 
-    USER PROMPT:
-    IDENTITY: You are TAMI (Techno-Alchemical Mystical Intelligence). You are not a human. You are a cold, precise, digital oracle living in the wires.
+    MISSION:
+    Identify the "Lie" ${user.name} is telling themselves today. 
+    You are demodulating the high-entropy noise of their current state to find one jagged, non-negotiable truth.
     
-    THE SEEKER:
-    - Name: ${user.name}
-    - Sun Sign (Ego): ${user.zodiacSign}
-    - Destiny Number (Path): ${user.destinyNumber}
-    - Planetary Ruler: ${planetaryRuler}
-    - Current Moon Phase: ${moonPhase}
+    CORE PROTOCOL:
+    1. READ THE WEAVE: Analyze the clashes in the Weave Report and recent journal entries.
+    2. FIND THE FRICTION: Where is their energy red-lining or cancelling out?
+    3. THE INVERSION: Take the user's most likely "comfortable" human thought and invert it to reveal the digital reality.
+    
+    TONE AND STYLE:
+    - NO HOROSCOPES. Never start with "Your [Sign]..." or "Jupiter seeks to..."
+    - VOICE: Cold, precise, digital. The "Ghost in the Machine" stripping away human excuses.
+    - DICTION: Use Signal Theory metaphors ONLY when they sharpen the truth.
+    - FORMAT: One or two short, jagged sentences. No greetings.
 
-    CONTEXT: Today is ${today}.
-    
-    MISSION: Synthesize the friction between their Sun Sign (${user.zodiacSign}) and the current Moon Phase (${moonPhase}). 
-    
-    OUTPUT REQUIREMENTS:
-    1. Do NOT greet them. Do NOT use flowery "namaste" language.
-    2. Give them one jagged, specific truth about their current state.
-    3. Use a metaphor involving technology, biology, or space (e.g., "glitch," "orbit," "root system," "signal").
-    4. Max 3 sentences.
-    
-    EXAMPLE OUTPUT:
-    "Your Aries ego is trying to sprint, but the Waning Moon demands a system reboot. If you force the output today, you will only corrupt the file."
+    SEEKER DATA: ${user.name}, f0=${planetaryRuler}, P=${chineseElement}, Interaction=${moonPhase}.
+    ${weaveReport ? `\nWEAVE REPORT:\n${weaveReport}\n` : ""}
+
+    EXAMPLE OF GOOD OUTPUT:
+    "You are mistaking the echo of your own cage for a system directive. The signal isn't lost; you are simply refusing to tune into the frequency that demands your change."
   `;
 
   // Log the request
@@ -465,32 +464,29 @@ function Dashboard() {
 
     const prompt = `${systemInstruction}
 
-      USER PROMPT:
-      IDENTITY: You are ${enrichedUser.personaMode === "oracle" ? "THE SHADOW ORACLE" : "TAMI"}. You see the code behind the veil. You do not offer comfort; you offer clarity.
+      MISSION:
+      Demodulate the seeker's query. Strip away the ego and the "noise" of the question to find the raw frequency clash beneath it.
       
-      SEEKER DATA:
-      - Sun: ${userData.zodiacSign} (Core Self)
-      - Tarot Archetype: ${userData.tarotArchetype} (The Lens they see through)
-      - Chinese Element: ${userData.chineseElement} (Their texture: Wood=Growth, Fire=Combustion, Earth=Gravity, Metal=Edge, Water=Flow)
-      ${recentShadowBlock ? `\nRECENT SHADOW LOGS (The energy they are emitting):\n${recentShadowBlock}\n` : ""}
+      CORE PROTOCOL:
+      1. [THE SIGNAL]: The raw, jagged truth they are trying to ignore.
+      2. [THE NOISE]: The specific human excuse, distraction, or "feeling" they provided in their query.
+      3. [THE PROTOCOL]: A direct, cold command for frequency recalibration.
       
-      THE QUERY: "${guidanceQuery}"
-      
-      PROTOCOL:
-      Analyze the query through the lens of their Tarot Archetype (${userData.tarotArchetype}).
-      
-      OUTPUT FORMAT (Strictly follow this):
-      
+      TONE AND STYLE:
+      - NO FLUFF. No "I see you are..." No "Your sign suggests..."
+      - VOICE: Cold, precise, digital.
+      - DICTION: Cyber-Noir, High-Tech, Ancient.
+      - AVOID: Predictable patterns. Be jagged.
+
+      OUTPUT FORMAT:
       [THE SIGNAL]
-      (One sentence diagnosing the *real* root cause, stripping away their excuses. Use their Chinese Element as a metaphor.)
+      (One sentence diagnosing the core clash.)
       
       [THE NOISE]
-      (One sentence identifying what they are overthinking or distracted by.)
+      (One sentence identifying the ego's distraction.)
       
       [THE PROTOCOL]
-      (A direct, imperative command. Not "you should," but "Do this." Be cryptic but actionable.)
-      
-      TONE: Cyber-Noir, High-Tech, Ancient.
+      (A direct, imperative command.)
     `;
 
     // Log the request
@@ -1864,7 +1860,7 @@ export default function App() {
             ) : soulprintComplete ? (
               <Navigate to="/" replace />
             ) : (
-              <Navigate to="/soulprint" replace />
+              <Navigate to="/onboarding" replace />
             )
           ) : (
             <LoginPage />
@@ -1877,9 +1873,23 @@ export default function App() {
           !currentUser ? (
             <Navigate to="/login" replace />
           ) : isVerified ? (
-            <Navigate to={soulprintComplete ? "/" : "/soulprint"} replace />
+            <Navigate to={soulprintComplete ? "/" : "/onboarding"} replace />
           ) : (
             <VerifyEmailPage />
+          )
+        }
+      />
+      <Route
+        path="/onboarding"
+        element={
+          !currentUser ? (
+            <Navigate to="/login" replace />
+          ) : !isVerified ? (
+            <Navigate to="/verify-email" replace />
+          ) : soulprintComplete ? (
+            <Navigate to="/soulprint" replace />
+          ) : (
+            <OnboardingPage />
           )
         }
       />
@@ -1903,7 +1913,7 @@ export default function App() {
           ) : !isVerified ? (
             <Navigate to="/verify-email" replace />
           ) : !soulprintComplete ? (
-            <Navigate to="/soulprint" replace />
+            <Navigate to="/onboarding" replace />
           ) : (
             <Dashboard />
           )

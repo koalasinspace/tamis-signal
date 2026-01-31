@@ -270,6 +270,13 @@ export default function SoulprintPage() {
   const [weaveLoading, setWeaveLoading] = useState(false);
   const weaveRunRef = useRef(0);
 
+  // Prefer showing the cached weave immediately (from onboarding) while the live weave recomputes.
+  useEffect(() => {
+    if (!weaveReport && userData?.weaveReportLatest) {
+      setWeaveReport(userData.weaveReportLatest);
+    }
+  }, [userData?.weaveReportLatest, weaveReport]);
+
   useEffect(() => {
     if (!userData) return;
     const run = ++weaveRunRef.current;
@@ -950,7 +957,13 @@ export default function SoulprintPage() {
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-white font-serif text-lg">Current Signal Status</h2>
             <div className="text-xs text-slate-400 font-mono">
-              {weaveLoading ? "Weaving…" : weaveReport ? "Locked" : "Waiting"}
+              {weaveLoading
+                ? userData?.weaveReportLatest
+                  ? "Weaving… (showing cached)"
+                  : "Weaving…"
+                : weaveReport
+                  ? "Locked"
+                  : "Waiting"}
             </div>
           </div>
           <p className="mt-1 text-xs text-slate-500">

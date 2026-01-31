@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COSMOS.DSP v2.3 | The Cosmic Pulse</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cosmic: { base: '#0f172a', panel: '#1e293b', accent: '#6366f1', highlight: '#a855f7' }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+                    animation: { 'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite' }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        body { background-color: #f1f5f9; color: #1e293b; }
+        .chart-wrapper { position: relative; height: 250px; width: 100%; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #e2e8f0; }
+        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .nav-btn.active { background-color: #e0e7ff; color: #4338ca; border-right: 3px solid #4338ca; }
+        #visualizer { width: 100%; height: 60px; background: #0f172a; border-radius: 6px; }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden font-sans text-slate-800 bg-slate-100">
+
+    <!-- Sidebar -->
+    <aside class="w-72 bg-white border-r border-slate-200 flex flex-col shadow-sm z-20 flex-shrink-0">
+        <div class="p-6 border-b border-slate-100">
+            <h1 class="text-xl font-bold tracking-tight text-slate-900">COSMOS<span class="text-indigo-600">.DSP</span></h1>
+            <div class="flex items-center gap-2 mt-2">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 uppercase tracking-wide">v2.3 Pulse</span>
+                <span class="text-[10px] text-slate-400 font-mono">PHASE_2A</span>
+            </div>
+        </div>
+        <div class="flex-1 overflow-y-auto py-4" id="nav-list"></div>
+        <div class="p-4 bg-slate-50 border-t border-slate-100 text-xs text-slate-500 font-mono">
+            <div class="flex justify-between mb-1">
+                <span>AUDIO ENGINE:</span>
+                <span id="audio-status" class="text-amber-600">STANDBY</span>
+            </div>
+            <div class="flex justify-between">
+                <span>SEQ:</span>
+                <span id="bpm-display" class="text-slate-400">-- BPM</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-full relative overflow-hidden">
+        <header class="bg-white border-b border-slate-200 h-16 px-6 flex justify-between items-center shadow-sm shrink-0 z-10">
+            <div class="flex flex-col">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Protocol</span>
+                <h2 id="header-title" class="text-lg font-bold text-slate-800">Select Target</h2>
+            </div>
+            <div class="flex items-center gap-2 overflow-x-auto">
+                <span class="text-[10px] font-bold text-slate-400 uppercase mr-2 hidden md:block whitespace-nowrap">Creative Contexts:</span>
+                <button onclick="app.setContext('selection')" class="ctx-btn px-3 py-1.5 rounded text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:border-indigo-400 hover:text-indigo-600 transition-colors whitespace-nowrap" data-mode="selection">SELECTION</button>
+                <button onclick="app.setContext('extrapolation')" class="ctx-btn px-3 py-1.5 rounded text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:border-indigo-400 hover:text-indigo-600 transition-colors whitespace-nowrap" data-mode="extrapolation">EXTRAPOLATION</button>
+                <button onclick="app.setContext('subtraction')" class="ctx-btn px-3 py-1.5 rounded text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:border-indigo-400 hover:text-indigo-600 transition-colors whitespace-nowrap" data-mode="subtraction">SUBTRACTION</button>
+                <div class="h-4 w-px bg-slate-300 mx-1"></div>
+                <button onclick="app.setContext('reverse')" class="ctx-btn px-3 py-1.5 rounded text-xs font-semibold bg-slate-800 text-indigo-300 hover:bg-slate-700 hover:text-white transition-colors border border-transparent whitespace-nowrap" data-mode="reverse">REV. LOGIC</button>
+                <button onclick="app.resetContext()" class="ml-2 p-1.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors" title="Reset">↺</button>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-6 md:p-8 scroll-smooth bg-slate-50/50">
+            <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left: Info -->
+                <div class="lg:col-span-4 space-y-6">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-bl-full -mr-4 -mt-4 z-0"></div>
+                        <h3 class="relative z-10 text-xs font-bold text-indigo-500 uppercase tracking-widest mb-4">Signal Source</h3>
+                        <div class="relative z-10 space-y-4">
+                            <div><label class="text-[10px] uppercase text-slate-400 font-bold">Classification</label><div id="info-type" class="text-sm font-medium text-slate-700">--</div></div>
+                            <div><label class="text-[10px] uppercase text-slate-400 font-bold">Mechanism</label><div id="info-mechanism" class="text-sm font-medium text-slate-700 leading-snug">--</div></div>
+                            <div class="bg-slate-900 rounded-lg p-3 mt-4 border border-slate-700">
+                                <div class="flex justify-between items-center mb-2"><span class="text-[10px] text-slate-400 uppercase font-mono tracking-wider">Audio Monitor</span><span id="hz-display" class="text-[10px] text-emerald-400 font-mono">0 Hz</span></div>
+                                <canvas id="visualizer" height="60"></canvas>
+                                <button id="play-btn" onclick="audioEngine.toggle()" class="w-full mt-2 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-2"><span class="text-lg leading-none">▶</span> Simulate Signal</button>
+                            </div>
+                            <div><label class="text-[10px] uppercase text-slate-400 font-bold">Description</label><p id="info-desc" class="text-sm text-slate-600 leading-relaxed mt-1">Select a data point.</p></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-fit">
+                        <div class="p-4 border-b border-slate-100 flex justify-between items-center"><h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest">Synthesis Protocol</h3><span class="text-[10px] font-mono text-indigo-400 bg-indigo-50 px-2 py-0.5 rounded">FLOW</span></div>
+                        <div id="protocol-container" class="p-2 space-y-1"></div>
+                    </div>
+                </div>
+                <!-- Right: Visuals -->
+                <div class="lg:col-span-8 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4"><h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 px-2">Sonic Profile</h3><div class="chart-wrapper"><canvas id="radarChart"></canvas></div></div>
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4"><h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 px-2">Spectral Analysis</h3><div class="chart-wrapper"><canvas id="spectrumChart"></canvas></div></div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6"><h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Physics Data Matrix</h3><div id="physics-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div></div>
+                    <div class="bg-indigo-900 rounded-xl shadow-lg border border-indigo-800 p-6 text-white relative overflow-hidden">
+                        <div class="absolute -top-10 -right-10 w-40 h-40 bg-purple-600 rounded-full mix-blend-overlay filter blur-3xl opacity-30"></div>
+                        <div class="relative z-10"><h3 class="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-2">Research Analysis</h3><p id="analysis-text" class="text-indigo-50 font-light leading-relaxed text-sm md:text-base">Ready.</p></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- DATABASE ---
+        const database = {
+            "EARTH": { title: "Earth", type: "Planetary", group: "Phase 1: Solar System", mechanism: "Schumann Resonance", desc: "Global electromagnetic resonance (7.83Hz).", analysis: "Grounding fundamental mixed with high-frequency whistlers.", profile: { timbre: 60, harmony: 80, chaos: 20, rhythm: 90, dynamics: 50 }, physics: { "Freq": "7.83 Hz", "Mode": "Waveguide" }, protocol: [{step:"OSC",val:"Sine @ 7.83Hz"}, {step:"MOD",val:"Tremolo"}], spectrum: [100, 30, 20, 60, 40, 10] },
+            "SOL": { title: "The Sun", type: "Star", group: "Phase 1: Solar System", mechanism: "Helioseismology", desc: "Deep acoustic waves driven by convection.", analysis: "Massive roaring drone of pink/brown noise.", profile: { timbre: 90, harmony: 40, chaos: 50, rhythm: 75, dynamics: 80 }, physics: { "Period": "5 Mins", "Freq": "3 mHz" }, protocol: [{step:"GEN",val:"Brown Noise"}, {step:"FILT",val:"LPF 80Hz"}], spectrum: [90, 85, 50, 30, 15, 5] },
+            "BLACKHOLE": { title: "Black Hole", type: "Singularity", group: "Phase 1: Deep Space", mechanism: "Gravitational Waves", desc: "The 'Chirp' of coalescence.", analysis: "Exponential rise in pitch/volume.", profile: { timbre: 20, harmony: 10, chaos: 10, rhythm: 100, dynamics: 100 }, physics: { "Strain": "10^-21", "Dur": "0.2s" }, protocol: [{step:"OSC",val:"Sweep"}, {step:"ENV",val:"Rise"}], spectrum: [20, 40, 60, 80, 100, 0] },
+            "ENTROPY": { title: "Entropy", type: "Thermodynamics", group: "Phase 2: Theoretical", mechanism: "Decay", desc: "Drift from order to disorder.", analysis: "Signal degradation into noise.", profile: { timbre: 100, harmony: 0, chaos: 100, rhythm: 10, dynamics: 20 }, physics: { "Delta S": "> 0", "Temp": "Eq" }, protocol: [{step:"FX",val:"Bitcrush"}, {step:"OUT",val:"Noise"}], spectrum: [80, 60, 40, 40, 60, 80] },
+            "REDSHIFT": { title: "Redshift", type: "Expansion", group: "Phase 2: Theoretical", mechanism: "Doppler", desc: "Light waves stretching.", analysis: "Infinite descent (Shepard Tone).", profile: { timbre: 40, harmony: 60, chaos: 20, rhythm: 60, dynamics: 40 }, physics: { "Variable": "z", "Effect": "Stretch" }, protocol: [{step:"GEN",val:"Shepard"}, {step:"FX",val:"Stereo"}], spectrum: [100, 70, 50, 30, 20, 10] },
+            "QUANTUM": { title: "Quantum Ent.", type: "Sub-Atomic", group: "Phase 2: Theoretical", mechanism: "Non-Local", desc: "Spooky action at a distance.", analysis: "Glitchy, random bleeps.", profile: { timbre: 80, harmony: 20, chaos: 70, rhythm: 95, dynamics: 60 }, physics: { "State": "Superpos", "Time": "t=0" }, protocol: [{step:"SEQ",val:"Stochastic"}, {step:"OSC",val:"Pulses"}], spectrum: [10, 80, 10, 90, 20, 80] },
+            "SUPERNOVA": { title: "Supernova", type: "Cataclysm", group: "Phase 2: Objects", mechanism: "Thermonuclear", desc: "Violent white dwarf explosion.", analysis: "Brief attack, massive decay.", profile: { timbre: 90, harmony: 10, chaos: 90, rhythm: 20, dynamics: 100 }, physics: { "Lum": "5e9 Sun", "Shock": "Supersonic" }, protocol: [{step:"ATK",val:"Burst"}, {step:"DEC",val:"Tail"}], spectrum: [95, 100, 80, 60, 40, 20] },
+            "STRING": { title: "String Theory", type: "Theory", group: "Phase 2: Theoretical", mechanism: "Vibration", desc: "1D objects in 11 dimensions.", analysis: "Metallic, resonant modeling.", profile: { timbre: 50, harmony: 100, chaos: 10, rhythm: 60, dynamics: 50 }, physics: { "Dims": "11", "Tension": "High" }, protocol: [{step:"MOD",val:"Karplus"}, {step:"TUNE",val:"Micro"}], spectrum: [40, 60, 80, 90, 85, 70] },
+            "OORT": { title: "Oort Cloud", type: "Object", group: "Phase 2: Objects", mechanism: "Reservoir", desc: "Shell of icy objects.", analysis: "Cold, sparse wind.", profile: { timbre: 70, harmony: 30, chaos: 40, rhythm: 10, dynamics: 30 }, physics: { "Temp": "4K", "Dens": "Low" }, protocol: [{step:"GEN",val:"Noise"}, {step:"REV",val:"Freeze"}], spectrum: [5, 10, 20, 50, 80, 60] },
+            
+            // PHASE 2A: RECOMBINATION
+            "PULSE": {
+                title: "The Cosmic Pulse", type: "Recombination", group: "Phase 2A: Recombination",
+                mechanism: "Universal Rhythm", desc: "Orchestration of all celestial bodies into the order of life beating through the universe.",
+                analysis: "A synchronized sequencer. Sol provides the Kick, Supernova the Snare, Earth/String the Texture, and Quantum the accent. It is the heartbeat of the cosmos.",
+                profile: { timbre: 50, harmony: 90, chaos: 10, rhythm: 100, dynamics: 90 },
+                physics: { "BPM": "60 (Resting)", "Time": "4/4", "Conductor": "Gravity" },
+                protocol: [
+                    {step:"SEQ",val:"60 BPM Heartbeat"},
+                    {step:"KICK",val:"Sol + Supernova"},
+                    {step:"PAD",val:"Oort + Earth"},
+                    {step:"HAT",val:"Quantum Glitch"}
+                ],
+                spectrum: [80, 70, 60, 50, 60, 70] // Balanced
+            },
+            "RAW": {
+                title: "Raw Aggregate", type: "Reduction", group: "Phase 2A: Recombination",
+                mechanism: "Unfiltered Signal", desc: "The raw oscillators of the research targets filtered OUT from the recombination. Pure signal.",
+                analysis: "A dense, static wall of sound. No rhythm, no envelope shaping. The raw fundamental frequencies of Earth, Sol, and Strings playing simultaneously.",
+                profile: { timbre: 100, harmony: 50, chaos: 80, rhythm: 0, dynamics: 100 },
+                physics: { "Polyphony": "Max", "Filter": "None", "State": "Raw" },
+                protocol: [
+                    {step:"OSC 1",val:"Sol (Noise)"},
+                    {step:"OSC 2",val:"Earth (Sine)"},
+                    {step:"OSC 3",val:"String (Saw)"},
+                    {step:"MIX",val:"Unity Gain"}
+                ],
+                spectrum: [100, 100, 100, 100, 100, 100] // Full Wall
+            }
+        };
+
+        // --- AUDIO ENGINE ---
+        const audioEngine = {
+            ctx: null, analyser: null, masterGain: null, nodes: [], animationId: null, isPlaying: false,
+            pulseTimer: null, beatCount: 0, nextNoteTime: 0,
+
+            init() {
+                if(this.ctx) return;
+                window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+                this.analyser = this.ctx.createAnalyser();
+                this.analyser.fftSize = 2048;
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.connect(this.analyser);
+                this.analyser.connect(this.ctx.destination);
+                this.draw();
+            },
+
+            stop() {
+                // Kill nodes
+                this.nodes.forEach(n => { try { n.stop && n.stop(); n.disconnect && n.disconnect(); } catch(e){} });
+                this.nodes = [];
+                // Kill sequencer
+                clearTimeout(this.pulseTimer);
+                this.isPlaying = false;
+                // UI Reset
+                document.getElementById('play-btn').innerHTML = '<span class="text-lg leading-none">▶</span> Simulate Signal';
+                document.getElementById('play-btn').className = "w-full mt-2 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-2";
+                document.getElementById('audio-status').innerText = "STANDBY";
+                document.getElementById('audio-status').className = "text-amber-600";
+                document.getElementById('bpm-display').innerText = "-- BPM";
+                if (this.ctx && this.ctx.state !== 'closed') this.masterGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.1);
+            },
+
+            toggle() {
+                if(!this.ctx) this.init();
+                if(this.ctx.state === 'suspended') this.ctx.resume();
+                this.isPlaying ? this.stop() : this.play(app.currentId, app.context);
+            },
+
+            // Helpers
+            mkOsc(freq, type, dur, vol, when=0) {
+                const t = this.ctx.currentTime + when;
+                const o = this.ctx.createOscillator();
+                const g = this.ctx.createGain();
+                o.type = type; o.frequency.value = freq;
+                g.gain.setValueAtTime(0, t);
+                g.gain.linearRampToValueAtTime(vol, t + 0.05);
+                g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+                o.connect(g); g.connect(this.masterGain);
+                o.start(t); o.stop(t + dur);
+                this.nodes.push(o, g);
+            },
+            mkNoise(type, dur, vol, when=0, filterType=null, filterFreq=1000) {
+                const t = this.ctx.currentTime + when;
+                const bs = 2 * this.ctx.sampleRate;
+                const b = this.ctx.createBuffer(1, bs, this.ctx.sampleRate);
+                const d = b.getChannelData(0);
+                for(let i=0; i<bs; i++) d[i] = Math.random()*2-1;
+                const src = this.ctx.createBufferSource(); src.buffer = b; src.loop = true;
+                const g = this.ctx.createGain();
+                g.gain.setValueAtTime(0, t);
+                g.gain.linearRampToValueAtTime(vol, t + 0.05);
+                g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+                
+                let out = src;
+                if(filterType) {
+                    const f = this.ctx.createBiquadFilter();
+                    f.type = filterType; f.frequency.value = filterFreq;
+                    src.connect(f); out = f; this.nodes.push(f);
+                }
+                out.connect(g); g.connect(this.masterGain);
+                src.start(t); src.stop(t+dur);
+                this.nodes.push(src, g);
+            },
+
+            // SEQUENCER SCHEDULER (The Pulse)
+            scheduler(contextMode) {
+                const lookahead = 25.0; // ms
+                const scheduleAhead = 0.1; // s
+                const bpm = contextMode === 'extrapolation' ? 120 : 60; // Tachycardia mode
+                const secondsPerBeat = 60.0 / bpm;
+                
+                document.getElementById('bpm-display').innerText = bpm + " BPM";
+
+                const nextNote = () => {
+                    const beat = this.beatCount % 4; // 0, 1, 2, 3
+                    const t = this.nextNoteTime - this.ctx.currentTime;
+                    const isRev = contextMode === 'reverse';
+
+                    // --- THE ORCHESTRA ---
+                    if (contextMode !== 'subtraction') {
+                        // KICK (Sol + Supernova) - Beat 1 (Reverse: Beat 4)
+                        if ((!isRev && beat === 0) || (isRev && beat === 3)) {
+                            this.mkOsc(50, 'sine', 0.8, 0.8, t); // Sol Body
+                            this.mkNoise('white', 0.3, 0.5, t, 'lowpass', 150); // Sol texture
+                        }
+                        
+                        // SNARE (Supernova Impact) - Beat 3 (Reverse: Beat 2)
+                        if ((!isRev && beat === 2) || (isRev && beat === 1)) {
+                            this.mkNoise('white', 0.4, 0.6, t, 'bandpass', 2000); // Crack
+                            this.mkOsc(150, 'triangle', 0.2, 0.3, t); // Impact body
+                        }
+
+                        // HATS (Quantum) - Every beat
+                        this.mkOsc(isRev ? 800 : 2000 + Math.random()*1000, 'sine', 0.05, 0.1, t);
+                    }
+
+                    // PAD (Oort/Earth) - Every beat, sustained
+                    // Selection mode: Pure sine pad. Default: Complex pad.
+                    const padVol = contextMode === 'subtraction' ? 0.6 : 0.2;
+                    if (contextMode === 'selection') {
+                        this.mkOsc(isRev ? 150 : 100, 'sine', secondsPerBeat, padVol, t);
+                    } else {
+                        // Evolving texture
+                        this.mkNoise('pink', secondsPerBeat, padVol*0.5, t, isRev ? 'lowpass' : 'highpass', 500);
+                        this.mkOsc(isRev ? 100 : 220, 'sine', secondsPerBeat, padVol*0.5, t);
+                    }
+
+                    this.nextNoteTime += secondsPerBeat;
+                    this.beatCount++;
+                };
+
+                const loop = () => {
+                    if (!this.isPlaying) return;
+                    while (this.nextNoteTime < this.ctx.currentTime + scheduleAhead) {
+                        nextNote();
+                    }
+                    this.pulseTimer = setTimeout(loop, lookahead);
+                };
+                
+                if (this.nextNoteTime < this.ctx.currentTime) this.nextNoteTime = this.ctx.currentTime + 0.1;
+                loop();
+            },
+
+            // RAW DRONE
+            playRaw(contextMode) {
+                const dur = 999;
+                const isRev = contextMode === 'reverse';
+                
+                // 1. Sol (Low)
+                if(contextMode !== 'selection') {
+                    // Noise floor
+                    const fType = isRev ? 'highpass' : 'lowpass';
+                    this.mkNoise('brown', dur, 0.4, 0, fType, 100);
+                }
+
+                // 2. Earth (Mid)
+                const earthFreq = isRev ? 300 : 50; 
+                this.mkOsc(earthFreq, 'sine', dur, 0.4);
+
+                // 3. String (High/Texture)
+                if(contextMode !== 'subtraction') {
+                    const strFreq = isRev ? 50 : 220;
+                    this.mkOsc(strFreq, 'sawtooth', dur, 0.1); // String harmonic
+                }
+
+                // 4. Quantum (Bleeps - Random Loop)
+                if(contextMode === 'extrapolation') {
+                    const qInt = setInterval(() => {
+                        if(!this.isPlaying) clearInterval(qInt);
+                        this.mkOsc(1000+Math.random()*1000, 'sine', 0.1, 0.1);
+                    }, 200);
+                }
+            },
+
+            play(id, contextMode) {
+                this.nodes.forEach(n => { try { n.stop && n.stop(); n.disconnect && n.disconnect(); } catch(e){} });
+                this.nodes = [];
+                clearTimeout(this.pulseTimer);
+                
+                this.isPlaying = true;
+                this.masterGain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                
+                // UI
+                document.getElementById('play-btn').innerHTML = '<span class="text-lg leading-none">■</span> Terminate Signal';
+                document.getElementById('play-btn').className = "w-full mt-2 py-2 rounded bg-red-500 hover:bg-red-600 text-white text-xs font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-2";
+                document.getElementById('audio-status').innerText = "GENERATING...";
+                document.getElementById('audio-status').className = "text-emerald-500 animate-pulse";
+                document.getElementById('bpm-display').innerText = "-- BPM";
+
+                const isRev = contextMode === 'reverse';
+
+                // ROUTING
+                if (id === 'PULSE') {
+                    this.scheduler(contextMode);
+                } else if (id === 'RAW') {
+                    this.playRaw(contextMode);
+                } else {
+                    // Standard Single Sources
+                    switch(id) {
+                        case 'EARTH':
+                            const ef = isRev ? 400 : 100; 
+                            this.mkOsc(ef, 'sine', 999, 0.5); 
+                            // LFO
+                            const lfo = this.ctx.createOscillator(); lfo.frequency.value = 7.83;
+                            const lfoG = this.ctx.createGain(); lfoG.gain.value = 50;
+                            lfo.connect(lfoG); lfoG.connect(this.nodes[0].frequency); // Connect to first osc
+                            lfo.start(); this.nodes.push(lfo, lfoG);
+                            break;
+                        case 'SOL': case 'ENTROPY': case 'OORT':
+                            let ft = 'bandpass', ff = 500;
+                            if(id==='SOL') { ft=isRev?'highpass':'lowpass'; ff=120; }
+                            if(id==='OORT') { ft='highpass'; ff=1000; }
+                            this.mkNoise('white', 999, 0.5, 0, ft, ff);
+                            break;
+                        case 'BLACKHOLE':
+                            const bhOsc = this.ctx.createOscillator();
+                            const bhGain = this.ctx.createGain();
+                            bhOsc.connect(bhGain); bhGain.connect(this.masterGain);
+                            bhGain.gain.setValueAtTime(0, this.ctx.currentTime);
+                            bhGain.gain.linearRampToValueAtTime(0.8, this.ctx.currentTime+1);
+                            bhGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime+3);
+                            bhOsc.frequency.setValueAtTime(isRev?800:50, this.ctx.currentTime);
+                            bhOsc.frequency.exponentialRampToValueAtTime(isRev?50:800, this.ctx.currentTime+3);
+                            bhOsc.start(); bhOsc.stop(this.ctx.currentTime+3.1);
+                            this.nodes.push(bhOsc, bhGain);
+                            setTimeout(()=>{if(this.isPlaying && app.currentId==='BLACKHOLE') this.stop()}, 3100);
+                            break;
+                        case 'REDSHIFT':
+                            const rsOsc = this.ctx.createOscillator(); const rsGain = this.ctx.createGain();
+                            rsOsc.connect(rsGain); rsGain.connect(this.masterGain);
+                            rsOsc.frequency.setValueAtTime(isRev?100:800, this.ctx.currentTime);
+                            rsOsc.frequency.linearRampToValueAtTime(isRev?800:100, this.ctx.currentTime+5);
+                            rsOsc.start(); rsOsc.stop(this.ctx.currentTime+5);
+                            this.nodes.push(rsOsc, rsGain);
+                            setTimeout(()=>{if(this.isPlaying && app.currentId==='REDSHIFT') this.stop()}, 5000);
+                            break;
+                        case 'QUANTUM':
+                            const qInt = setInterval(()=>{
+                                this.mkOsc(isRev?100+Math.random()*200:800+Math.random()*1000, 'sine', 0.1, 0.2);
+                            }, 150);
+                            this.nodes.push({stop:()=>clearInterval(qInt), disconnect:()=>{}});
+                            break;
+                        case 'SUPERNOVA':
+                            this.mkNoise('white', 4, 1, 0, 'lowpass', 20000);
+                            setTimeout(()=>{if(this.isPlaying && app.currentId==='SUPERNOVA') this.stop()}, 4000);
+                            break;
+                        case 'STRING':
+                            this.mkOsc(isRev?100:220, 'sawtooth', 999, 0.2);
+                            break;
+                    }
+                }
+            },
+
+            draw() {
+                const cvs = document.getElementById('visualizer');
+                if(!cvs) return requestAnimationFrame(()=>this.draw());
+                const c = cvs.getContext('2d');
+                const len = this.analyser.frequencyBinCount;
+                const data = new Uint8Array(len);
+                const draw = () => {
+                    this.animationId = requestAnimationFrame(draw);
+                    this.analyser.getByteTimeDomainData(data);
+                    c.fillStyle = '#0f172a'; c.fillRect(0,0,cvs.width,cvs.height);
+                    c.lineWidth = 2; c.strokeStyle = '#6366f1'; c.beginPath();
+                    let x=0, sw=cvs.width*1.0/len;
+                    for(let i=0; i<len; i++) {
+                        const v = data[i]/128.0; const y = v*cvs.height/2;
+                        i===0?c.moveTo(x,y):c.lineTo(x,y); x+=sw;
+                    }
+                    c.lineTo(cvs.width, cvs.height/2); c.stroke();
+                };
+                draw();
+            }
+        };
+
+        // --- APP LOGIC ---
+        const app = {
+            currentId: null, context: 'default', charts: {},
+            init() { this.renderSidebar(); this.initCharts(); this.loadData('EARTH'); },
+            renderSidebar() {
+                const nav = document.getElementById('nav-list');
+                const groups = {};
+                Object.keys(database).forEach(k => {
+                    const g = database[k].group;
+                    if(!groups[g]) groups[g]=[]; groups[g].push(k);
+                });
+                let html = '';
+                Object.keys(groups).forEach(g => {
+                    html += `<div class="mb-6 px-4"><h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">${g}</h4><div class="space-y-1">`;
+                    groups[g].forEach(k => {
+                        const activeColor = g.includes('Recombination') ? 'bg-amber-400' : (g.includes('Phase 2') ? 'bg-indigo-400' : 'bg-slate-400');
+                        html += `<button onclick="app.loadData('${k}')" class="nav-btn w-full text-left px-3 py-2 rounded text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2" id="nav-${k}"><span class="w-1.5 h-1.5 rounded-full ${activeColor}"></span>${database[k].title}</button>`;
+                    });
+                    html += `</div></div>`;
+                });
+                nav.innerHTML = html;
+            },
+            initCharts() {
+                this.charts.radar = new Chart(document.getElementById('radarChart'), { type: 'radar', data: { labels: ['Timbre','Harmony','Chaos','Rhythm','Dynamics'], datasets: [{ data:[0,0,0,0,0], backgroundColor:'rgba(99,102,241,0.2)', borderColor:'#6366f1', borderWidth:2 }] }, options: { maintainAspectRatio:false, scales:{r:{beginAtZero:true,max:100,ticks:{display:false}}}, plugins:{legend:{display:false}} } });
+                this.charts.spectrum = new Chart(document.getElementById('spectrumChart'), { type: 'bar', data: { labels: ['Low','Lo-Mid','Mid','Hi-Mid','High','Ultra'], datasets: [{ data:[], backgroundColor:'#818cf8', borderRadius:4 }] }, options: { maintainAspectRatio:false, scales:{y:{display:false,max:120},x:{grid:{display:false}}}, plugins:{legend:{display:false}} } });
+            },
+            loadData(id) {
+                if(audioEngine.isPlaying) audioEngine.play(id, this.context); // Seamless switch
+                this.currentId = id; const d = database[id];
+                document.getElementById('header-title').textContent = d.title;
+                document.getElementById('info-type').textContent = d.type;
+                document.getElementById('info-mechanism').textContent = d.mechanism;
+                document.getElementById('info-desc').textContent = d.desc;
+                document.getElementById('analysis-text').textContent = d.analysis;
+                document.getElementById('hz-display').textContent = d.physics.Freq || d.physics.BPM || "-- Hz";
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                document.getElementById(`nav-${id}`).classList.add('active');
+                document.getElementById('physics-grid').innerHTML = Object.entries(d.physics).map(([k,v])=>`<div class="p-3 bg-slate-50 border border-slate-100 rounded"><div class="text-[9px] font-bold text-slate-400 uppercase mb-1">${k}</div><div class="text-xs font-mono text-slate-700 truncate" title="${v}">${v}</div></div>`).join('');
+                document.getElementById('protocol-container').innerHTML = d.protocol.map((s,i)=>`<div class="protocol-step flex items-center p-2 rounded mb-1 border border-transparent"><div class="w-6 h-6 rounded bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold mr-3 font-mono">${i+1}</div><div class="flex-1"><span class="text-[10px] font-bold text-slate-400 uppercase block">${s.step}</span><span class="text-xs font-medium text-slate-700">${s.val}</span></div></div>`).join('');
+                this.renderVisuals();
+            },
+            setContext(mode) {
+                const wasPlaying = audioEngine.isPlaying;
+                this.context = mode;
+                document.querySelectorAll('.ctx-btn').forEach(b => {
+                    const m = b.dataset.mode;
+                    b.classList.toggle('ring-2', m===mode); b.classList.toggle('ring-indigo-400', m===mode); b.classList.toggle('bg-indigo-50', m===mode);
+                });
+                this.renderVisuals();
+                if(wasPlaying) audioEngine.play(this.currentId, this.context);
+            },
+            resetContext() { this.setContext('default'); },
+            renderVisuals() {
+                if(!this.currentId) return;
+                const d = database[this.currentId];
+                let sData = [...d.spectrum], rData = Object.values(d.profile), txt = "";
+                if(this.context==='selection') { sData=sData.map(v=>v>60?v:5); rData[1]+=20; txt="<br><br><strong class='text-indigo-300'>CONTEXT: SELECTION.</strong> Gated frequencies."; }
+                else if(this.context==='extrapolation') { sData=sData.map((v,i)=>v+(i*15)); rData[2]+=20; txt="<br><br><strong class='text-purple-300'>CONTEXT: EXTRAPOLATION.</strong> Predictive boost."; }
+                else if(this.context==='subtraction') { sData=sData.map(v=>Math.max(0,v-30)); rData[2]-=30; txt="<br><br><strong class='text-emerald-300'>CONTEXT: SUBTRACTION.</strong> Noise removed."; }
+                else if(this.context==='reverse') { sData=sData.map(v=>100-v); let t=rData[1];rData[1]=rData[2];rData[2]=t; txt="<br><br><strong class='text-amber-300'>CONTEXT: REVERSE LOGIC.</strong> Audio and data inverted."; }
+                this.charts.spectrum.data.datasets[0].data = sData; this.charts.spectrum.data.datasets[0].backgroundColor = this.context==='reverse'?'#f59e0b':'#818cf8'; this.charts.spectrum.update();
+                this.charts.radar.data.datasets[0].data = rData; this.charts.radar.data.datasets[0].borderColor = this.context==='reverse'?'#f59e0b':'#6366f1'; this.charts.radar.update();
+                document.getElementById('analysis-text').innerHTML = d.analysis + txt;
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => { app.init(); document.body.addEventListener('click', ()=>audioEngine.init(), {once:true}); });
+    </script>
+</body>
+</html>

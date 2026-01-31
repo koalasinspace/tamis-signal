@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Resonance: The Sound of the Universe</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Tailwind Config for Custom Colors -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'space-black': '#0f172a',
+                        'star-white': '#f8fafc',
+                        'nebula-purple': '#6366f1',
+                        'accent-gold': '#f59e0b',
+                        'void-gray': '#1e293b',
+                        'ui-panel': '#ffffff',
+                        'text-primary': '#334155',
+                        'text-secondary': '#64748b'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        .chart-container {
+            position: relative; 
+            width: 100%; 
+            max-width: 600px; 
+            margin-left: auto; 
+            margin-right: auto; 
+            height: 300px; 
+            max-height: 400px;
+        }
+        
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+
+        /* Oscilloscope Canvas */
+        #oscilloscope {
+            width: 100%;
+            height: 100%;
+            border-radius: 0.5rem;
+            background: #0f172a;
+        }
+
+        /* Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none; 
+            background: transparent; 
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #4f46e5;
+            cursor: pointer;
+            margin-top: -6px; 
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #e2e8f0;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-text-primary font-sans antialiased overflow-hidden h-screen flex flex-col">
+
+    <!-- Chosen Palette: Warm Neutrals + Nebula Purple & Gold Accents (Minimalist Science) -->
+    <!-- Application Structure Plan: 
+         - Layout: Two-column responsive dashboard. Left sidebar for navigation (Context Selection). Right/Main panel for data, visualization, and synthesis.
+         - User Flow: Users select a celestial entity -> The Main Panel updates with Summary, Data, and Graphs -> User interacts with the "Synth Deck" to hear the sonification.
+         - Justification: The list of objects implies a hierarchy or traversal. A sidebar allows quick jumping between scales (Earth -> Universe). The complex data needs a dedicated dashboard view.
+    -->
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 h-16 flex items-center px-6 shadow-sm z-10 flex-shrink-0 justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-nebula-purple rounded-full flex items-center justify-center text-white font-bold text-lg">
+                &#9881; <!-- Unicode Gear/Star representation -->
+            </div>
+            <h1 class="text-xl font-bold tracking-tight text-slate-800">Cosmic <span class="text-nebula-purple">Resonance</span> Explorer</h1>
+        </div>
+        <div class="hidden md:flex items-center text-sm text-text-secondary">
+            <span class="mr-4">Audio Status: <span id="audio-status" class="font-mono text-slate-500">Standby</span></span>
+            <button id="master-mute" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-md transition-colors text-xs font-semibold uppercase tracking-wider">
+                Toggle Audio
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- Sidebar Navigation -->
+        <nav class="w-full md:w-64 bg-white border-r border-slate-200 overflow-y-auto flex-shrink-0 hidden md:block" id="sidebar">
+            <div class="p-4">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Local System</h3>
+                <ul class="space-y-1" id="nav-list-local">
+                    <!-- Populated by JS -->
+                </ul>
+
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-6 mb-3 px-2">Galactic & Beyond</h3>
+                <ul class="space-y-1" id="nav-list-deep">
+                    <!-- Populated by JS -->
+                </ul>
+
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-6 mb-3 px-2">Universal</h3>
+                <ul class="space-y-1" id="nav-list-universal">
+                    <!-- Populated by JS -->
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Mobile Nav Toggle (Visible only on small screens) -->
+        <div class="md:hidden absolute bottom-4 right-4 z-50">
+            <button id="mobile-menu-btn" class="bg-nebula-purple text-white p-3 rounded-full shadow-lg">
+                &#9776;
+            </button>
+        </div>
+
+        <!-- Content Area -->
+        <main class="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-8 relative">
+            
+            <div class="max-w-6xl mx-auto space-y-6">
+                
+                <!-- Intro Section -->
+                <section id="intro-panel" class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 md:p-8 mb-6">
+                    <div class="flex flex-col md:flex-row justify-between items-start gap-6">
+                        <div class="flex-1">
+                            <h2 id="entity-title" class="text-3xl font-bold text-slate-800 mb-2">Welcome to the Archive</h2>
+                            <p id="entity-subtitle" class="text-nebula-purple font-medium mb-4">Select a celestial context to begin analysis</p>
+                            <p id="entity-summary" class="text-slate-600 leading-relaxed text-lg">
+                                Celestial bodies do not transmit sound through the vacuum of space in the traditional sense. However, they emit electromagnetic frequencies, gravitational waves, and plasma oscillations that can be translated into the auditory spectrum through a process called <strong>Sonification</strong>. This tool allows you to explore these data points and listen to a synthesized reconstruction of their cosmic signatures.
+                            </p>
+                        </div>
+                        <!-- Audio Synth Deck -->
+                        <div class="w-full md:w-80 bg-slate-900 rounded-lg p-4 text-white shadow-lg flex-shrink-0">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-xs font-bold uppercase tracking-widest text-slate-400">Sonification Synth</h3>
+                                <div class="w-2 h-2 rounded-full bg-red-500" id="synth-light"></div>
+                            </div>
+                            
+                            <!-- Oscilloscope View -->
+                            <div class="h-24 bg-black rounded mb-4 border border-slate-700 overflow-hidden relative">
+                                <canvas id="oscilloscope"></canvas>
+                                <div class="absolute top-1 left-2 text-[10px] text-green-500 font-mono">Live Waveform</div>
+                            </div>
+
+                            <!-- Controls -->
+                            <div class="space-y-3">
+                                <button id="play-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded transition-colors flex items-center justify-center gap-2">
+                                    <span>&#9658;</span> Initiate Audio
+                                </button>
+                                
+                                <div class="space-y-1">
+                                    <label class="text-[10px] text-slate-400 uppercase flex justify-between">
+                                        <span>Data Density (Modulation)</span>
+                                        <span id="mod-val">50%</span>
+                                    </label>
+                                    <input type="range" min="0" max="100" value="50" class="w-full" id="mod-slider">
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-slate-500 mt-3 text-center italic">
+                                *Audio is procedurally generated via Web Audio API based on context data.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Data & Metrics Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    
+                    <!-- Textual Analysis -->
+                    <section class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                        <div class="flex items-center gap-2 mb-4 border-b border-slate-100 pb-2">
+                            <span class="text-xl text-accent-gold">&#9737;</span> <!-- Unicode Target -->
+                            <h3 class="text-lg font-bold text-slate-700">Scientific Context & Methodology</h3>
+                        </div>
+                        <p class="text-sm text-slate-500 mb-4 italic">
+                            How we define the "sound" of this context.
+                        </p>
+                        <div id="methodology-text" class="text-slate-600 space-y-3 text-sm leading-relaxed">
+                            <p>Select an object to see how its physical properties—such as rotation, magnetic resonance, or gravitational variance—are mapped to audio frequencies.</p>
+                        </div>
+
+                        <div class="mt-6">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Key Datapoints</h4>
+                            <ul id="datapoints-list" class="space-y-2">
+                                <li class="flex justify-between items-center p-2 bg-slate-50 rounded border border-slate-100">
+                                    <span class="text-sm font-medium text-slate-600">Waiting for selection...</span>
+                                    <span class="text-xs font-mono text-slate-400">---</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </section>
+
+                    <!-- Visualization -->
+                    <section class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex flex-col">
+                        <div class="flex items-center gap-2 mb-4 border-b border-slate-100 pb-2">
+                            <span class="text-xl text-nebula-purple">&#9889;</span> <!-- Unicode Bolt -->
+                            <h3 class="text-lg font-bold text-slate-700">Spectral Analysis</h3>
+                        </div>
+                        <p class="text-sm text-slate-500 mb-2">
+                            A visualization of the dominant data components comprising the sonification.
+                        </p>
+                        
+                        <!-- Chart Container -->
+                        <div class="flex-grow flex items-center justify-center py-2">
+                            <div class="chart-container">
+                                <canvas id="dataChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-2 text-center">
+                            <p id="chart-caption" class="text-xs text-slate-400">Composition of signal data</p>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Footer / Technical Note -->
+                <footer class="text-center text-xs text-slate-400 py-6">
+                    <p>Generated for educational exploration of celestial sonification. Audio is a simulation based on scientific parameters.</p>
+                </footer>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Visualization & Content Choices: 
+         - Goal: To Inform and Experience.
+         - Viz 1: "Audio Oscilloscope" (Canvas) -> Provides immediate visual feedback that "sound" is happening. Connects the invisible (audio) to the visible.
+         - Viz 2: "Spectral Composition" (Radar/Doughnut Chart) -> Shows what makes up the sound (e.g., 60% Gravity, 30% EM Radiation). Helps compare contexts.
+         - Interaction: Range slider allows user to "tune" the sonification (modulating the synthesis based on 'uncertainty' or 'density').
+         - Library: Chart.js for the static data viz, Native Canvas API for the oscilloscope, Web Audio API for the sound.
+         - Confirmation: No SVG or Mermaid used.
+    -->
+
+    <script>
+        // --- DATA STORE ---
+        const cosmicData = {
+            earth: {
+                id: 'earth',
+                title: 'Planet Earth',
+                subtitle: 'The Chorus & The Hum',
+                category: 'local',
+                summary: 'Earth is not silent. Its magnetosphere traps solar wind particles, creating the "Chorus" effect—chirping radio waves detectable by receivers. Additionally, the "Schumann Resonance" creates a low-frequency atmospheric heartbeat.',
+                methodology: 'Sonification combines the VLF (Very Low Frequency) radio waves converted to audio (whistlers/chorus) with the steady 7.83 Hz Schumann resonance (pitched up to be audible).',
+                datapoints: [
+                    { label: 'Schumann Resonance', value: '7.83 Hz (Fundamental)' },
+                    { label: 'Magnetosphere Activity', value: 'High Variability' },
+                    { label: 'Atmospheric Density', value: '1.2 kg/m³' },
+                    { label: 'Radio Emissions', value: 'Auroral Kilometric Radiation' }
+                ],
+                chartData: [20, 50, 30], // [Gravity/Mass, Electromagnetic, Physical/Seismic]
+                chartLabels: ['Seismic Hum', 'Magnetosphere Chorus', 'Atmospheric Resonance'],
+                audioParams: { type: 'complex-chorus', baseFreq: 150, chaos: 0.6 }
+            },
+            luna: {
+                id: 'luna',
+                title: 'Luna (The Moon)',
+                subtitle: 'The Ringing Bell',
+                category: 'local',
+                summary: 'Unlike Earth, the Moon has no atmosphere to dampen vibrations. During the Apollo missions, seismometers recorded "moonquakes". Impact events caused the Moon to ring like a bell for over an hour.',
+                methodology: 'Seismic data from Apollo missions time-compressed. The sound is characterized by a sharp attack (impact) followed by an extremely long, clean decay due to the dry, rigid crust.',
+                datapoints: [
+                    { label: 'Seismic Decay Time', value: '> 60 Minutes' },
+                    { label: 'Core State', value: 'Partially Molten/Solid' },
+                    { label: 'Surface Rigidity', value: 'High' },
+                    { label: 'Atmospheric Damping', value: '0%' }
+                ],
+                chartData: [80, 5, 15], 
+                chartLabels: ['Seismic Impact', 'Solar Wind Reflection', 'Tidal Stress'],
+                audioParams: { type: 'metallic-ring', baseFreq: 220, chaos: 0.1 }
+            },
+            sol: {
+                id: 'sol',
+                title: 'Sol (The Sun)',
+                subtitle: 'The Deep Roar',
+                category: 'local',
+                summary: 'The Sun vibrates with pressure waves generated by turbulence in its convection zone. Helioseismology studies these oscillations, which have periods around 5 minutes.',
+                methodology: 'Doppler velocity data of the solar surface is sped up by a factor of 42,000 to bring the deep infrasound (mHz range) into the human hearing range. It sounds like a deep, hum-like roar.',
+                datapoints: [
+                    { label: 'Oscillation Period', value: '~5 Minutes' },
+                    { label: 'Dominant Mode', value: 'P-modes (Pressure)' },
+                    { label: 'Convection Depth', value: '200,000 km' },
+                    { label: 'Frequency Range', value: '3-4 mHz (infrasound)' }
+                ],
+                chartData: [10, 80, 10], 
+                chartLabels: ['Gravitational Pressure', 'Convection Turbulence', 'Magnetic Loops'],
+                audioParams: { type: 'low-drone', baseFreq: 65, chaos: 0.8 }
+            },
+            sibling: {
+                id: 'sibling',
+                title: 'Stellar Sibling (HD 162826)',
+                subtitle: 'The Harmonic Twin',
+                category: 'deep',
+                summary: 'Born from the same gas cloud as Sol, HD 162826 is a chemical sibling. Its sound profile is theoretically similar to the Sun but modulated by its slightly greater mass and surface temperature.',
+                methodology: 'modeled based on Sol\'s helioseismology data but pitch-shifted to account for the star\'s F-type spectrum and 15% greater mass, creating a slightly higher, brighter harmonic tone.',
+                datapoints: [
+                    { label: 'Distance', value: '110 Light Years' },
+                    { label: 'Spectral Type', value: 'F8V' },
+                    { label: 'Mass', value: '1.15 Solar Masses' },
+                    { label: 'Chemical Match', value: 'Rare Earth Elements' }
+                ],
+                chartData: [20, 70, 10], 
+                chartLabels: ['Stellar Harmonics', 'Thermal Convection', 'Sibling Resonance'],
+                audioParams: { type: 'harmonic-drone', baseFreq: 75, chaos: 0.4 }
+            },
+            milkyway: {
+                id: 'milkyway',
+                title: 'Milky Way Galaxy',
+                subtitle: 'The Galactic Hiss',
+                category: 'deep',
+                summary: 'The galaxy emits across the entire spectrum. The "sound" is dominated by the rotation curve of gas clouds and the intense radio emissions from the galactic center (Sagittarius A*).',
+                methodology: 'Mapping the rotation velocity of neutral hydrogen gas to pitch. Inner stars orbit faster (higher pitch), outer stars slower (lower pitch), combined with radio static from the core.',
+                datapoints: [
+                    { label: 'Rotation Velocity', value: '220 km/s' },
+                    { label: 'Diameter', value: '100,000 Light Years' },
+                    { label: 'Central Source', value: 'Sgr A* (Radio)' },
+                    { label: 'Primary Signal', value: '21cm Hydrogen Line' }
+                ],
+                chartData: [40, 40, 20], 
+                chartLabels: ['Dark Matter Rotation', 'Radio Emissions', 'Star Formation Noise'],
+                audioParams: { type: 'noise-sweep', baseFreq: 100, chaos: 0.9 }
+            },
+            localgroup: {
+                id: 'localgroup',
+                title: 'The Local Group',
+                subtitle: 'Gravitational Dance',
+                category: 'deep',
+                summary: 'A cluster of galaxies including Andromeda and the Milky Way. The "sound" here is defined by the slow, inevitable gravitational acceleration between these massive bodies.',
+                methodology: 'Sonification of the relative velocities between galaxies. As Andromeda approaches, the frequency (Doppler shift) would theoretically increase over eons. Presented here as a slow, phasing interaction.',
+                datapoints: [
+                    { label: 'Members', value: '> 54 Galaxies' },
+                    { label: 'Dominant Mass', value: 'Andromeda & Milky Way' },
+                    { label: 'Interaction State', value: 'Infall/Collision' },
+                    { label: 'Timescale', value: 'Billions of Years' }
+                ],
+                chartData: [90, 5, 5], 
+                chartLabels: ['Gravitational Potential', 'Intergalactic Gas', 'Stellar Light'],
+                audioParams: { type: 'binaural-beat', baseFreq: 40, chaos: 0.2 }
+            },
+            laniakea: {
+                id: 'laniakea',
+                title: 'Laniakea Supercluster',
+                subtitle: 'The Great Attractor',
+                category: 'deep',
+                summary: 'Our home supercluster. It looks like glowing streams of light flowing towards a center. The sound is the "flow" of thousands of galaxies moving along gravitational filaments.',
+                methodology: 'Fluid dynamic sonification. Mapping the velocity flow fields of galaxies as they drift toward the Great Attractor. A sound like rushing wind or flowing water on a cosmic scale.',
+                datapoints: [
+                    { label: 'Span', value: '520 Million Light Years' },
+                    { label: 'Mass', value: '10^17 Solar Masses' },
+                    { label: 'Flow Target', value: 'Great Attractor' },
+                    { label: 'Structure', value: 'Filamentary Network' }
+                ],
+                chartData: [85, 10, 5], 
+                chartLabels: ['Dark Energy Flow', 'Galactic Density', 'Void Expansion'],
+                audioParams: { type: 'wind-flow', baseFreq: 200, chaos: 0.7 }
+            },
+            blackhole: {
+                id: 'blackhole',
+                title: 'Black Holes',
+                subtitle: 'The Chirp & The Heartbeat',
+                category: 'deep',
+                summary: 'Black holes generate ripples in spacetime (Gravitational Waves). Merging black holes create a rising frequency "chirp". Some, like GRS 1915+105, emit X-ray "heartbeats".',
+                methodology: 'Direct translation of LIGO gravitational wave frequencies (chirps) and X-ray variability curves. The Perseus cluster black hole famously hums a B-flat 57 octaves below middle C.',
+                datapoints: [
+                    { label: 'Event Type', value: 'Coalescence / Accretion' },
+                    { label: 'Signal Medium', value: 'Spacetime / X-Rays' },
+                    { label: 'Famous Tone', value: 'B-flat (Deep)' },
+                    { label: 'Amplitude', value: 'Extreme' }
+                ],
+                chartData: [60, 30, 10], 
+                chartLabels: ['Spacetime Strain', 'Accretion Disk X-Ray', 'Jet Shockwaves'],
+                audioParams: { type: 'chirp-sweep', baseFreq: 50, chaos: 0.5 }
+            },
+            cmb: {
+                id: 'cmb',
+                title: 'Cosmic Microwave Background',
+                subtitle: 'The Oldest Static',
+                category: 'universal',
+                summary: 'The afterglow of the Big Bang. Pervasive radiation filling the universe. If you tune an old TV between channels, ~1% of the static is the CMB.',
+                methodology: 'White noise mapped to the temperature fluctuations of the early universe. It sounds like pure, consistent static hiss, representing the thermal radiation of the infant cosmos.',
+                datapoints: [
+                    { label: 'Temperature', value: '2.725 K' },
+                    { label: 'Age', value: '380,000 Years (Post-BB)' },
+                    { label: 'Uniformity', value: 'Isotropic (Mostly)' },
+                    { label: 'Spectrum', value: 'Black Body' }
+                ],
+                chartData: [100, 0, 0], 
+                chartLabels: ['Thermal Radiation', 'Matter', 'Dark Energy'],
+                audioParams: { type: 'pure-static', baseFreq: 1000, chaos: 1.0 }
+            },
+            universe: {
+                id: 'universe',
+                title: 'The Universe at Large',
+                subtitle: 'Baryon Acoustic Oscillations',
+                category: 'universal',
+                summary: 'Sound waves from the early universe trapped in the distribution of matter. These pressure waves (BAO) determined where galaxies formed.',
+                methodology: 'Deep, sub-bass frequencies representing the expansion of the universe and the fundamental sound waves that rippled through the primordial plasma.',
+                datapoints: [
+                    { label: 'Scale', value: 'Observable Universe' },
+                    { label: 'Mechanism', value: 'Sound Horizon' },
+                    { label: 'Frequency', value: 'Femto-Hertz range' },
+                    { label: 'Composition', value: 'Dark Energy Dominated' }
+                ],
+                chartData: [70, 25, 5], 
+                chartLabels: ['Dark Energy', 'Dark Matter', 'Baryonic Matter'],
+                audioParams: { type: 'deep-expansion', baseFreq: 30, chaos: 0.3 }
+            }
+        };
+
+        // --- APP STATE ---
+        let currentContextId = 'earth';
+        let isPlaying = false;
+        let audioContext = null;
+        let masterGain = null;
+        let oscillators = [];
+        let animationFrameId = null;
+        let currentChart = null;
+
+        // --- DOM ELEMENTS ---
+        const navListLocal = document.getElementById('nav-list-local');
+        const navListDeep = document.getElementById('nav-list-deep');
+        const navListUniversal = document.getElementById('nav-list-universal');
+        const entityTitle = document.getElementById('entity-title');
+        const entitySubtitle = document.getElementById('entity-subtitle');
+        const entitySummary = document.getElementById('entity-summary');
+        const methodologyText = document.getElementById('methodology-text');
+        const datapointsList = document.getElementById('datapoints-list');
+        const playBtn = document.getElementById('play-btn');
+        const modSlider = document.getElementById('mod-slider');
+        const modVal = document.getElementById('mod-val');
+        const synthLight = document.getElementById('synth-light');
+        const canvas = document.getElementById('oscilloscope');
+        const canvasCtx = canvas.getContext('2d');
+        const audioStatus = document.getElementById('audio-status');
+        const masterMuteBtn = document.getElementById('master-mute');
+
+        // --- INITIALIZATION ---
+        function init() {
+            renderNav();
+            loadContext('earth');
+            setupChart();
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+        }
+
+        // --- NAVIGATION ---
+        function renderNav() {
+            const createItem = (key, data) => {
+                const li = document.createElement('li');
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left px-3 py-2 rounded text-sm transition-colors hover:bg-slate-50 border-l-2 border-transparent focus:outline-none nav-item`;
+                btn.dataset.id = key;
+                btn.innerHTML = `<span class="font-medium">${data.title}</span>`;
+                btn.onclick = () => loadContext(key);
+                li.appendChild(btn);
+                return li;
+            };
+
+            for (const [key, data] of Object.entries(cosmicData)) {
+                if (data.category === 'local') navListLocal.appendChild(createItem(key, data));
+                else if (data.category === 'deep') navListDeep.appendChild(createItem(key, data));
+                else navListUniversal.appendChild(createItem(key, data));
+            }
+        }
+
+        function loadContext(id) {
+            // Stop audio if playing
+            if (isPlaying) stopAudio();
+
+            currentContextId = id;
+            const data = cosmicData[id];
+
+            // Update Text
+            entityTitle.textContent = data.title;
+            entitySubtitle.textContent = data.subtitle;
+            entitySummary.innerHTML = data.summary;
+            methodologyText.textContent = data.methodology;
+
+            // Update Datapoints
+            datapointsList.innerHTML = '';
+            data.datapoints.forEach(dp => {
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center p-2 bg-slate-50 rounded border border-slate-100 hover:bg-white transition-colors';
+                li.innerHTML = `
+                    <span class="text-sm font-medium text-slate-600">${dp.label}</span>
+                    <span class="text-xs font-mono text-nebula-purple bg-indigo-50 px-2 py-1 rounded">${dp.value}</span>
+                `;
+                datapointsList.appendChild(li);
+            });
+
+            // Update Chart
+            updateChart(data);
+
+            // Update Nav Styles
+            document.querySelectorAll('.nav-item').forEach(btn => {
+                if (btn.dataset.id === id) {
+                    btn.classList.add('bg-slate-100', 'border-nebula-purple', 'text-nebula-purple');
+                    btn.classList.remove('border-transparent');
+                } else {
+                    btn.classList.remove('bg-slate-100', 'border-nebula-purple', 'text-nebula-purple');
+                    btn.classList.add('border-transparent');
+                }
+            });
+        }
+
+        // --- CHART.JS SETUP ---
+        function setupChart() {
+            const ctx = document.getElementById('dataChart').getContext('2d');
+            currentChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: ['#6366f1', '#f59e0b', '#cbd5e1'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                font: { size: 10 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return ' ' + context.label + ': ' + context.raw + '%';
+                                }
+                            }
+                        }
+                    },
+                    cutout: '70%',
+                }
+            });
+        }
+
+        function updateChart(data) {
+            currentChart.data.labels = data.chartLabels;
+            currentChart.data.datasets[0].data = data.chartData;
+            currentChart.update();
+        }
+
+        // --- WEB AUDIO API ENGINE ---
+        function initAudio() {
+            if (!audioContext) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioContext = new AudioContext();
+                masterGain = audioContext.createGain();
+                masterGain.gain.value = 0.5;
+                masterGain.connect(audioContext.destination);
+                
+                // Analyzer for Oscilloscope
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 2048;
+                masterGain.connect(analyser);
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+
+        function toggleAudio() {
+            if (isPlaying) {
+                stopAudio();
+            } else {
+                startAudio();
+            }
+        }
+
+        function startAudio() {
+            initAudio();
+            isPlaying = true;
+            playBtn.innerHTML = `<span>&#9632;</span> Cease Audio`;
+            playBtn.classList.replace('bg-indigo-600', 'bg-red-500');
+            playBtn.classList.replace('hover:bg-indigo-500', 'hover:bg-red-600');
+            synthLight.classList.replace('bg-red-500', 'bg-green-500');
+            synthLight.classList.add('animate-pulse');
+            audioStatus.textContent = "Active";
+            audioStatus.classList.add('text-green-500');
+
+            const params = cosmicData[currentContextId].audioParams;
+            generateSound(params);
+            drawOscilloscope();
+        }
+
+        function stopAudio() {
+            isPlaying = false;
+            playBtn.innerHTML = `<span>&#9658;</span> Initiate Audio`;
+            playBtn.classList.replace('bg-red-500', 'bg-indigo-600');
+            playBtn.classList.replace('hover:bg-red-600', 'hover:bg-indigo-500');
+            synthLight.classList.replace('bg-green-500', 'bg-red-500');
+            synthLight.classList.remove('animate-pulse');
+            audioStatus.textContent = "Standby";
+            audioStatus.classList.remove('text-green-500');
+
+            oscillators.forEach(osc => {
+                try {
+                    osc.stop();
+                    osc.disconnect();
+                } catch(e) {}
+            });
+            oscillators = [];
+            cancelAnimationFrame(animationFrameId);
+        }
+
+        function generateSound(params) {
+            const now = audioContext.currentTime;
+            
+            // Modulation Value (0-1) from slider
+            const mod = parseInt(modSlider.value) / 100;
+
+            // 1. Base Drone
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            
+            // 2. Filter (Muffle the sound for space feel)
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 400 + (mod * 1000); // Slider opens filter
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            // Synthesis Logic based on type
+            if (params.type === 'complex-chorus' || params.type === 'metallic-ring') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(params.baseFreq, now);
+                
+                // Add LFO for "shimmer"
+                const lfo = audioContext.createOscillator();
+                lfo.frequency.value = 5 + (mod * 10);
+                const lfoGain = audioContext.createGain();
+                lfoGain.gain.value = 20;
+                lfo.connect(lfoGain);
+                lfoGain.connect(osc.frequency);
+                lfo.start();
+                oscillators.push(lfo);
+
+            } else if (params.type === 'low-drone' || params.type === 'deep-expansion') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(params.baseFreq, now);
+                // Sub oscillator
+                const sub = audioContext.createOscillator();
+                sub.type = 'sine';
+                sub.frequency.setValueAtTime(params.baseFreq / 2, now);
+                const subGain = audioContext.createGain();
+                subGain.gain.value = 0.5;
+                sub.connect(masterGain);
+                sub.start();
+                oscillators.push(sub);
+
+            } else if (params.type === 'noise-sweep' || params.type === 'pure-static') {
+                // Create Noise Buffer
+                const bufferSize = audioContext.sampleRate * 2; // 2 seconds
+                const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = audioContext.createBufferSource();
+                noise.buffer = buffer;
+                noise.loop = true;
+                
+                // Bandpass filter for "wind" effect
+                const bandpass = audioContext.createBiquadFilter();
+                bandpass.type = 'bandpass';
+                bandpass.frequency.value = params.baseFreq + (mod * 500);
+                bandpass.Q.value = 1;
+                
+                noise.connect(bandpass);
+                bandpass.connect(gain);
+                noise.start();
+                oscillators.push(noise);
+                return; // Early exit for noise types as they replace the main osc
+
+            } else if (params.type === 'chirp-sweep') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(params.baseFreq, now);
+                osc.frequency.exponentialRampToValueAtTime(params.baseFreq * 4, now + 2); // Chirp up
+                
+                // LFO for "wobble"
+                const lfo = audioContext.createOscillator();
+                lfo.frequency.value = 8; 
+                const lfoGain = audioContext.createGain();
+                lfoGain.gain.value = 10;
+                lfo.connect(lfoGain);
+                lfoGain.connect(osc.frequency);
+                lfo.start();
+                oscillators.push(lfo);
+            } else {
+                // Generic fallback
+                osc.type = 'sine';
+                osc.frequency.value = params.baseFreq;
+            }
+
+            // Envelope
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.3, now + 1); // Fade in
+
+            osc.start();
+            oscillators.push(osc);
+        }
+
+        // --- OSCILLOSCOPE ---
+        let analyser = null;
+        const bufferLength = 2048;
+        const dataArray = new Uint8Array(bufferLength);
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.offsetWidth;
+            canvas.height = canvas.parentElement.offsetHeight;
+        }
+
+        function drawOscilloscope() {
+            if (!isPlaying) return;
+            animationFrameId = requestAnimationFrame(drawOscilloscope);
+
+            analyser.getByteTimeDomainData(dataArray);
+
+            canvasCtx.fillStyle = 'rgb(15, 23, 42)'; // Background
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+            canvasCtx.lineWidth = 2;
+            canvasCtx.strokeStyle = 'rgb(99, 102, 241)'; // Wave color (Indigo-500)
+
+            canvasCtx.beginPath();
+
+            const sliceWidth = canvas.width * 1.0 / bufferLength;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = v * canvas.height / 2;
+
+                if (i === 0) {
+                    canvasCtx.moveTo(x, y);
+                } else {
+                    canvasCtx.lineTo(x, y);
+                }
+
+                x += sliceWidth;
+            }
+
+            canvasCtx.lineTo(canvas.width, canvas.height / 2);
+            canvasCtx.stroke();
+        }
+
+        // --- EVENT LISTENERS ---
+        playBtn.addEventListener('click', toggleAudio);
+        
+        modSlider.addEventListener('input', (e) => {
+            modVal.textContent = e.target.value + '%';
+            if (isPlaying) {
+                // Restart sound to apply new params quickly
+                // In a prod app, we'd modulate the nodes directly, 
+                // but this is a simple "re-patch" approach.
+                stopAudio();
+                startAudio();
+            }
+        });
+
+        masterMuteBtn.addEventListener('click', () => {
+            if(audioContext && audioContext.state === 'running') {
+                audioContext.suspend();
+                audioStatus.textContent = "Muted";
+                audioStatus.classList.add('text-red-500');
+                audioStatus.classList.remove('text-green-500');
+            } else if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+                audioStatus.textContent = isPlaying ? "Active" : "Standby";
+                audioStatus.classList.remove('text-red-500');
+                if(isPlaying) audioStatus.classList.add('text-green-500');
+            }
+        });
+
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        mobileMenuBtn.addEventListener('click', () => {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('hidden');
+            sidebar.classList.toggle('fixed');
+            sidebar.classList.toggle('inset-0');
+            sidebar.classList.toggle('z-40');
+        });
+
+        // Run
+        init();
+
+    </script>
+</body>
+</html>

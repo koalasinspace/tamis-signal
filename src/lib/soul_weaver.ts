@@ -205,6 +205,24 @@ export async function generateWeaveReport(profile: UserProfile): Promise<string>
     });
   }
 
+  // LAW 4: The Law of the Carrier (Carrier vs. Interface)
+  if (profile.lifePathNumber && profile.lifePathNumber > 7 && westernElement === "Fire") {
+    hits.push({
+      law: "The Law of the Carrier",
+      systemStatus: "Signal Overheating.",
+      tamiVoice: "Your fractal seed is deep and slow, but your fire is trying to flicker too fast. The result is thermal noise.",
+    });
+  }
+
+  // LAW 5: The Law of Resonance (Fundamental vs. Tone)
+  if (profile.planetaryRuler === "Saturn" && profile.chineseElement === "Fire") {
+    hits.push({
+      law: "The Law of Resonance",
+      systemStatus: "Structure Combustion.",
+      tamiVoice: "Saturn is trying to build the frame, but the Fire is consuming the blueprint before the ink is dry.",
+    });
+  }
+
   if (hits.length) {
     lines.push("WEAVER LAWS TRIGGERED:");
     for (const h of hits) {

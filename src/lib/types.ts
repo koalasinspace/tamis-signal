@@ -65,6 +65,8 @@ export interface UserProfile {
   journalEntries?: Array<JournalEntry>;
   entropyScore?: number; // 0..100 (higher = more entropy/static)
   pushNotificationsEnabled?: boolean;
+  /** Latest deterministic weave report output (cached for UI + prompts). */
+  weaveReportLatest?: string;
   subscriptionTier: "Free" | "Premium";
   joinDate: string;
 }

@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orchestrating the Cosmos: Phase 2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500&family=Inter:wght@300;400;600;800&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* space-black */
+            color: #f8fafc; /* star-white */
+            overflow: hidden;
+        }
+
+        .mono {
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #6366f1; 
+            border-radius: 3px;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .active-item {
+            border-left: 3px solid #f59e0b; /* accent-gold */
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .visualizer-container {
+            position: relative;
+            height: 200px;
+            width: 100%;
+            background: #000;
+            border-bottom: 1px solid #334155;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <!-- Top Bar -->
+    <header class="h-16 glass-panel flex items-center justify-between px-6 z-10 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-3 h-3 rounded-full bg-indigo-500 animate-pulse"></div>
+            <h1 class="text-xl font-bold tracking-tight">COSMOS <span class="text-indigo-400 font-light">SONIFIER</span> <span class="text-xs text-gray-500 mono ml-2">v4.0 Phase 2</span></h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <div id="status-indicator" class="flex items-center gap-2 text-xs mono text-gray-400">
+                <span class="w-2 h-2 rounded-full bg-red-500" id="audio-dot"></span>
+                <span id="audio-status">AUDIO OFFLINE</span>
+            </div>
+            <button id="master-switch" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold uppercase tracking-wider rounded transition-colors">
+                Initialize System
+            </button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Sidebar Navigation -->
+        <aside class="w-72 glass-panel border-r border-slate-700 flex flex-col overflow-y-auto z-10">
+            <div class="p-4">
+                <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Data Categories</h2>
+                
+                <div id="nav-container" class="space-y-6">
+                    <!-- Dynamic Content Loaded Here -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col relative bg-slate-900">
+            
+            <!-- Oscilloscope / Visualizer -->
+            <div class="visualizer-container shrink-0">
+                <canvas id="oscilloscope"></canvas>
+                <div class="absolute top-2 right-2 text-[10px] mono text-emerald-500 opacity-70">
+                    REAL-TIME WAVEFORM ANALYSIS
+                </div>
+            </div>
+
+            <!-- Content Panel -->
+            <div id="content-panel" class="flex-1 p-8 overflow-y-auto">
+                <div class="max-w-4xl mx-auto opacity-50 flex flex-col items-center justify-center h-full text-center">
+                    <svg class="w-16 h-16 text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                    <h3 class="text-lg font-light">Select a Celestial Entity to Begin Sonification</h3>
+                    <p class="text-sm text-slate-500 mt-2">Awaiting Data Ingestion...</p>
+                </div>
+            </div>
+
+            <!-- Control Bar -->
+            <div class="h-20 glass-panel border-t border-slate-700 flex items-center px-8 gap-8 shrink-0">
+                <div class="flex flex-col w-1/3">
+                    <label class="text-[10px] uppercase text-gray-400 font-bold mb-1">Master Gain</label>
+                    <input type="range" id="master-volume" min="0" max="1" step="0.01" value="0.5" class="w-full accent-indigo-500 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div class="flex flex-col w-1/3">
+                    <label class="text-[10px] uppercase text-gray-400 font-bold mb-1">Parameter Modulation</label>
+                    <input type="range" id="param-mod" min="0" max="100" value="50" class="w-full accent-amber-500 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                    <div class="flex justify-between text-[10px] text-gray-600 mt-1">
+                        <span>Low</span>
+                        <span>High</span>
+                    </div>
+                </div>
+                <div class="flex-1 flex justify-end">
+                    <button id="soulprint-btn" class="px-3 py-1 border border-indigo-500/30 text-indigo-300 text-xs rounded hover:bg-indigo-500/10 transition">
+                        EXECUTE: Cosmic Soulprint
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Data & Application Logic -->
+    <script>
+        // --- DATA STORE ---
+        const cosmicData = {
+            "PHASE 1: THE LOCAL SYSTEM": [
+                {
+                    id: "EARTH_01",
+                    title: "Earth (Magnetosphere)",
+                    class: "Planetary",
+                    desc: "Complex biotic and electromagnetic chorus. Whistlers, Sferics, and Schumann Resonances.",
+                    synthesisType: "complex_chorus",
+                    color: "text-emerald-400"
+                },
+                {
+                    id: "LUNA_02",
+                    title: "Luna (The Moon)",
+                    class: "Satellite",
+                    desc: "High Q-factor resonance. 'The Moon Bell'. Metallic, dissonant modal vibrations.",
+                    synthesisType: "modal_resonator",
+                    color: "text-slate-300"
+                },
+                {
+                    id: "SOL_03",
+                    title: "Sol (The Sun)",
+                    class: "Star (G-Type)",
+                    desc: "Helioseismology p-modes. Deep, throbbing 5-minute oscillations scaled to audio.",
+                    synthesisType: "additive_drone",
+                    color: "text-amber-400"
+                }
+            ],
+            "CLASS I: THE KNOWN": [
+                {
+                    id: "PULSAR_01",
+                    title: "Pulsar (PSR B0329+54)",
+                    class: "Neutron Star",
+                    desc: "Cosmic Metronomes. Industrial, rhythmic clicking transitioning to tonal hums.",
+                    synthesisType: "pulsar_gating",
+                    color: "text-cyan-400"
+                },
+                {
+                    id: "FRB_01",
+                    title: "Fast Radio Burst",
+                    class: "Transient",
+                    desc: "Extragalactic millisecond pulses with extreme dispersion measures. 'Pew-pew' sweeps.",
+                    synthesisType: "dispersed_sweep",
+                    color: "text-pink-500"
+                }
+            ],
+            "CLASS II: THE UNKNOWN": [
+                {
+                    id: "DARK_MATTER_01",
+                    title: "Dark Matter Halo",
+                    class: "Inferred Structure",
+                    desc: "Galactic scaffolding. Subsonic sine-wave bass holding the galaxy together.",
+                    synthesisType: "sub_bass_structure",
+                    color: "text-purple-900"
+                },
+                {
+                    id: "VOID_01",
+                    title: "Boötes Void",
+                    class: "Cosmic Structure",
+                    desc: "Spherical emptiness. Inverted density mapping. Near silence and dry impulses.",
+                    synthesisType: "void_ambience",
+                    color: "text-gray-600"
+                }
+            ],
+            "CLASS III: THEORETICAL": [
+                {
+                    id: "STRING_01",
+                    title: "Superstring Theory",
+                    class: "Quantum Gravity",
+                    desc: "Calabi-Yau Manifold topology mapped to harmonic spectra. Perfect alien geometry.",
+                    synthesisType: "string_theory_fm",
+                    color: "text-indigo-300"
+                },
+                {
+                    id: "ENTANGLEMENT_01",
+                    title: "Quantum Entanglement",
+                    class: "Quantum Mechanics",
+                    desc: "Non-local correlation. Two distinct voices modulating perfectly in sync.",
+                    synthesisType: "entangled_pair",
+                    color: "text-teal-200"
+                }
+            ],
+            "CLASS IV: ESOTERIC": [
+                {
+                    id: "CCC_01",
+                    title: "Conformal Cyclic Cosmology",
+                    class: "Speculative",
+                    desc: "Hawking points from previous aeons. Faint, reverberated impulses pre-dating the track.",
+                    synthesisType: "reverse_reverb",
+                    color: "text-rose-300"
+                },
+                {
+                    id: "BOLTZMANN_01",
+                    title: "Boltzmann Brain",
+                    class: "Thermodynamic",
+                    desc: "Consciousness arising from chaos. White noise organizing into melody then dissolving.",
+                    synthesisType: "chaos_to_order",
+                    color: "text-orange-200"
+                }
+            ],
+            "CREATIVE PROTOCOLS": [
+                 {
+                    id: "NEUTRINO_01",
+                    title: "Neutrino Oscillation",
+                    class: "Particle Physics",
+                    desc: "Flavor shifting (Electron/Muon/Tau). Phasing textures that drift in and out of existence.",
+                    synthesisType: "phaser_drift",
+                    color: "text-blue-200"
+                },
+                {
+                    id: "QUASAR_01",
+                    title: "Quasar Jet",
+                    class: "Active Galactic Nucleus",
+                    desc: "Relativistic beaming. Massive, directional white noise beam.",
+                    synthesisType: "noise_beam",
+                    color: "text-white"
+                }
+            ]
+        };
+
+        // --- AUDIO ENGINE ---
+        let audioCtx;
+        let masterGain;
+        let analyser;
+        let currentNodes = [];
+        let isPlaying = false;
+
+        // Visualizer
+        const canvas = document.getElementById("oscilloscope");
+        const canvasCtx = canvas.getContext("2d");
+        
+        function initAudio() {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.5;
+            
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 2048;
+
+            masterGain.connect(analyser);
+            analyser.connect(audioCtx.destination);
+
+            drawVisualizer();
+            
+            document.getElementById('status-indicator').classList.remove('text-gray-400');
+            document.getElementById('status-indicator').classList.add('text-emerald-400');
+            document.getElementById('audio-dot').classList.remove('bg-red-500');
+            document.getElementById('audio-dot').classList.add('bg-emerald-500');
+            document.getElementById('audio-status').innerText = "AUDIO ONLINE";
+            document.getElementById('master-switch').innerText = "SYSTEM ACTIVE";
+            document.getElementById('master-switch').disabled = true;
+            document.getElementById('master-switch').classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        function stopSound() {
+            currentNodes.forEach(node => {
+                try {
+                    if (node.stop) node.stop();
+                    node.disconnect();
+                } catch(e) {}
+            });
+            currentNodes = [];
+            isPlaying = false;
+        }
+
+        // --- SYNTHESIS ALGORITHMS ---
+
+        function playSound(type) {
+            if (!audioCtx) initAudio();
+            stopSound();
+            isPlaying = true;
+
+            const t = audioCtx.currentTime;
+            const paramVal = document.getElementById('param-mod').value / 100; // 0 to 1
+
+            // Common Gain for voice
+            const voiceGain = audioCtx.createGain();
+            voiceGain.gain.setValueAtTime(0, t);
+            voiceGain.gain.linearRampToValueAtTime(0.8, t + 0.5);
+            voiceGain.connect(masterGain);
+            currentNodes.push(voiceGain);
+
+            switch (type) {
+                case 'complex_chorus': // Earth
+                    // Drone
+                    const osc1 = audioCtx.createOscillator();
+                    osc1.frequency.value = 150 + (paramVal * 50);
+                    osc1.type = 'triangle';
+                    
+                    // Modulator (Whistlers)
+                    const lfo = audioCtx.createOscillator();
+                    lfo.frequency.value = 0.2;
+                    const lfoGain = audioCtx.createGain();
+                    lfoGain.gain.value = 50;
+                    
+                    lfo.connect(lfoGain);
+                    lfoGain.connect(osc1.frequency);
+                    
+                    osc1.connect(voiceGain);
+                    osc1.start();
+                    lfo.start();
+                    currentNodes.push(osc1, lfo, lfoGain);
+                    
+                    // Sferics (Noise bursts)
+                    setInterval(() => {
+                        if(!isPlaying) return;
+                        if(Math.random() > 0.8) {
+                            const noise = audioCtx.createBufferSource();
+                            const bufferSize = audioCtx.sampleRate * 0.1;
+                            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                            const data = buffer.getChannelData(0);
+                            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                            noise.buffer = buffer;
+                            const noiseGain = audioCtx.createGain();
+                            noiseGain.gain.value = 0.3;
+                            noise.connect(noiseGain).connect(masterGain);
+                            noise.start();
+                        }
+                    }, 500);
+                    break;
+
+                case 'modal_resonator': // Luna
+                    // Bell-like FM
+                    const carrier = audioCtx.createOscillator();
+                    const modulator = audioCtx.createOscillator();
+                    const modGain = audioCtx.createGain();
+                    
+                    carrier.frequency.value = 200; // Fundamental
+                    modulator.frequency.value = 283; // Non-integer ratio
+                    modGain.gain.value = 300 * paramVal; // Modulation index
+                    
+                    modulator.connect(modGain);
+                    modGain.connect(carrier.frequency);
+                    carrier.connect(voiceGain);
+                    
+                    carrier.start();
+                    modulator.start();
+                    currentNodes.push(carrier, modulator, modGain);
+                    break;
+
+                case 'additive_drone': // Sol
+                    // Stack of sines
+                    const fundamentals = [100, 100.5, 199, 301, 600];
+                    fundamentals.forEach(f => {
+                        const o = audioCtx.createOscillator();
+                        o.frequency.value = f + (Math.random() * paramVal * 10);
+                        o.type = 'sine';
+                        const g = audioCtx.createGain();
+                        g.gain.value = 0.15;
+                        o.connect(g).connect(voiceGain);
+                        o.start();
+                        currentNodes.push(o, g);
+                    });
+                    break;
+
+                case 'pulsar_gating': // Pulsar
+                    const pulseOsc = audioCtx.createOscillator();
+                    pulseOsc.type = 'sawtooth';
+                    pulseOsc.frequency.value = 55; // Tone
+
+                    const gate = audioCtx.createGain();
+                    gate.gain.value = 0;
+                    
+                    pulseOsc.connect(gate).connect(voiceGain);
+                    pulseOsc.start();
+                    currentNodes.push(pulseOsc, gate);
+
+                    // Rhythmic gating
+                    const clock = audioCtx.createOscillator();
+                    clock.frequency.value = 2 + (paramVal * 8); // 2Hz to 10Hz
+                    clock.type = 'square';
+                    const clockGain = audioCtx.createGain();
+                    clockGain.gain.value = 1;
+                    clock.connect(gate.gain); // AM Modulation
+                    clock.start();
+                    currentNodes.push(clock, clockGain);
+                    break;
+
+                case 'dispersed_sweep': // FRB
+                    const sweep = audioCtx.createOscillator();
+                    sweep.type = 'sawtooth';
+                    sweep.frequency.setValueAtTime(2000, t);
+                    sweep.frequency.exponentialRampToValueAtTime(100, t + 0.3 + (paramVal * 0.5));
+                    
+                    const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.value = 1500;
+
+                    sweep.connect(filter).connect(voiceGain);
+                    sweep.start();
+                    // Loop it for effect
+                    setInterval(() => {
+                        if(!isPlaying) return;
+                        if(Math.random() > 0.6) {
+                            const s = audioCtx.createOscillator();
+                            s.type = 'sawtooth';
+                            s.frequency.setValueAtTime(2000, audioCtx.currentTime);
+                            s.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.2);
+                            const g = audioCtx.createGain();
+                            g.gain.value = 0.3;
+                            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                            s.connect(g).connect(masterGain);
+                            s.start();
+                            s.stop(audioCtx.currentTime + 0.3);
+                        }
+                    }, 1000);
+                    currentNodes.push(sweep, filter);
+                    break;
+
+                case 'sub_bass_structure': // Dark Matter
+                    const sub1 = audioCtx.createOscillator();
+                    const sub2 = audioCtx.createOscillator();
+                    sub1.frequency.value = 30; 
+                    sub2.frequency.value = 32 + (paramVal * 2); // Binaural beat potential
+                    
+                    sub1.connect(voiceGain);
+                    sub2.connect(voiceGain);
+                    sub1.start();
+                    sub2.start();
+                    currentNodes.push(sub1, sub2);
+                    break;
+                
+                case 'string_theory_fm': // String Theory
+                    // Complex FM cluster
+                    const op1 = audioCtx.createOscillator();
+                    const op2 = audioCtx.createOscillator();
+                    const op3 = audioCtx.createOscillator();
+                    
+                    op1.frequency.value = 220;
+                    op2.frequency.value = 440 * 1.618; // Golden ratio
+                    op3.frequency.value = 110;
+
+                    const g1 = audioCtx.createGain();
+                    const g2 = audioCtx.createGain();
+                    g1.gain.value = 500 * paramVal;
+                    g2.gain.value = 200;
+
+                    op3.connect(g2).connect(op2.frequency);
+                    op2.connect(g1).connect(op1.frequency);
+                    op1.connect(voiceGain);
+
+                    op1.start(); op2.start(); op3.start();
+                    currentNodes.push(op1, op2, op3, g1, g2);
+                    break;
+                
+                case 'entangled_pair': // Quantum Entanglement
+                    // Stereo Panning (simulated with 2 oscillators slightly detuned)
+                    const left = audioCtx.createOscillator();
+                    const right = audioCtx.createOscillator();
+                    left.frequency.value = 300;
+                    right.frequency.value = 300;
+                    
+                    // Modulate both identically
+                    const comLFO = audioCtx.createOscillator();
+                    comLFO.frequency.value = 0.5 + (paramVal * 2);
+                    const comGain = audioCtx.createGain();
+                    comGain.gain.value = 20;
+                    
+                    comLFO.connect(comGain);
+                    comGain.connect(left.frequency);
+                    comGain.connect(right.frequency); // Linked state
+
+                    left.connect(voiceGain);
+                    right.connect(voiceGain);
+                    
+                    left.start(); right.start(); comLFO.start();
+                    currentNodes.push(left, right, comLFO, comGain);
+                    break;
+
+                case 'reverse_reverb': // CCC
+                    // Simulated reverse envelope
+                    const source = audioCtx.createOscillator();
+                    source.frequency.value = 100;
+                    const vGain = audioCtx.createGain();
+                    
+                    // Envelope: Swell up, sharp cut
+                    vGain.gain.setValueAtTime(0, t);
+                    vGain.gain.linearRampToValueAtTime(0.8, t + 2);
+                    vGain.gain.setValueAtTime(0, t + 2.05); // Cutoff
+                    
+                    source.connect(vGain).connect(masterGain);
+                    source.start();
+                    source.stop(t + 2.1);
+                    
+                    // Repeat
+                    const interval = setInterval(() => {
+                        if(!isPlaying) { clearInterval(interval); return; }
+                        const s = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        s.frequency.value = 100 + (Math.random() * 50);
+                        g.gain.setValueAtTime(0, audioCtx.currentTime);
+                        g.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 2);
+                        g.gain.setValueAtTime(0, audioCtx.currentTime + 2.01);
+                        s.connect(g).connect(masterGain);
+                        s.start();
+                        s.stop(audioCtx.currentTime + 2.1);
+                    }, 2500);
+                    currentNodes.push(source, vGain);
+                    break;
+
+                case 'chaos_to_order': // Boltzmann
+                    // Noise filtered into Tone
+                    const bSize = audioCtx.sampleRate * 2;
+                    const bBuf = audioCtx.createBuffer(1, bSize, audioCtx.sampleRate);
+                    const bData = bBuf.getChannelData(0);
+                    for(let i=0; i<bSize; i++) bData[i] = Math.random() * 2 - 1;
+                    
+                    const noiseNode = audioCtx.createBufferSource();
+                    noiseNode.buffer = bBuf;
+                    noiseNode.loop = true;
+                    
+                    const bFilter = audioCtx.createBiquadFilter();
+                    bFilter.type = 'bandpass';
+                    bFilter.Q.value = 1; // Start noisy
+                    
+                    // Envelope Q factor
+                    bFilter.Q.setValueAtTime(1, t);
+                    bFilter.Q.linearRampToValueAtTime(100, t + 4); // Become tonal
+                    bFilter.frequency.value = 440;
+
+                    noiseNode.connect(bFilter).connect(voiceGain);
+                    noiseNode.start();
+                    currentNodes.push(noiseNode, bFilter);
+                    break;
+
+                case 'phaser_drift': // Neutrino
+                    const pOsc = audioCtx.createOscillator();
+                    pOsc.type = 'sawtooth';
+                    pOsc.frequency.value = 110;
+                    
+                    const pFilter = audioCtx.createBiquadFilter();
+                    pFilter.type = 'allpass';
+                    pFilter.frequency.value = 500;
+                    
+                    // Modulate allpass filter freq
+                    const pLfo = audioCtx.createOscillator();
+                    pLfo.frequency.value = 0.2;
+                    const pLfoG = audioCtx.createGain();
+                    pLfoG.gain.value = 1000;
+                    
+                    pLfo.connect(pLfoG).connect(pFilter.frequency);
+                    
+                    pOsc.connect(pFilter).connect(voiceGain);
+                    pOsc.start(); pLfo.start();
+                    currentNodes.push(pOsc, pFilter, pLfo, pLfoG);
+                    break;
+                    
+                case 'noise_beam': // Quasar
+                    const qSize = audioCtx.sampleRate * 1;
+                    const qBuf = audioCtx.createBuffer(1, qSize, audioCtx.sampleRate);
+                    const qData = qBuf.getChannelData(0);
+                    for(let i=0; i<qSize; i++) qData[i] = Math.random() * 2 - 1;
+                    
+                    const qNode = audioCtx.createBufferSource();
+                    qNode.buffer = qBuf;
+                    qNode.loop = true;
+                    
+                    const qFilter = audioCtx.createBiquadFilter();
+                    qFilter.type = 'highpass';
+                    qFilter.frequency.value = 800 + (paramVal * 2000);
+                    
+                    qNode.connect(qFilter).connect(voiceGain);
+                    qNode.start();
+                    currentNodes.push(qNode, qFilter);
+                    break;
+                    
+                case 'soulprint': // Cosmic Soulprint
+                     // Fundamental frequencies of nature (approximate)
+                     const s1 = audioCtx.createOscillator(); s1.frequency.value = 432; 
+                     const s2 = audioCtx.createOscillator(); s2.frequency.value = 216;
+                     const s3 = audioCtx.createOscillator(); s3.frequency.value = 108;
+                     
+                     const sG = audioCtx.createGain(); sG.gain.value = 0.2;
+                     
+                     s1.connect(sG); s2.connect(sG); s3.connect(sG);
+                     sG.connect(masterGain);
+                     
+                     s1.start(); s2.start(); s3.start();
+                     currentNodes.push(s1, s2, s3, sG);
+                     break;
+
+                default:
+                    console.log("No synth def found");
+            }
+        }
+
+        // --- UI LOGIC ---
+
+        function renderSidebar() {
+            const container = document.getElementById('nav-container');
+            
+            for (const [category, items] of Object.entries(cosmicData)) {
+                const catDiv = document.createElement('div');
+                catDiv.className = "mb-6";
+                catDiv.innerHTML = `<h3 class="text-[10px] font-bold text-indigo-400/70 mb-2 uppercase">${category}</h3>`;
+                
+                const ul = document.createElement('ul');
+                ul.className = "space-y-1";
+                
+                items.forEach(item => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <button onclick="selectItem('${item.id}')" class="w-full text-left px-3 py-2 rounded text-sm text-gray-400 hover:text-white hover:bg-slate-800 transition-all flex items-center justify-between group">
+                            <span class="group-hover:translate-x-1 transition-transform">${item.title}</span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-600 group-hover:bg-indigo-400 transition-colors"></span>
+                        </button>
+                    `;
+                    ul.appendChild(li);
+                });
+                
+                catDiv.appendChild(ul);
+                container.appendChild(catDiv);
+            }
+        }
+
+        function selectItem(id) {
+            let selectedItem = null;
+            // Find item
+            for (const items of Object.values(cosmicData)) {
+                const found = items.find(i => i.id === id);
+                if (found) selectedItem = found;
+            }
+
+            if (!selectedItem) return;
+
+            // Update UI
+            const panel = document.getElementById('content-panel');
+            panel.innerHTML = `
+                <div class="max-w-3xl mx-auto animate-fade-in">
+                    <div class="flex items-center gap-4 mb-2">
+                        <span class="px-2 py-0.5 rounded border border-gray-600 text-[10px] uppercase text-gray-400">${selectedItem.class}</span>
+                        <span class="text-xs font-mono text-gray-500">ID: ${selectedItem.id}</span>
+                    </div>
+                    <h2 class="text-4xl font-light mb-6 ${selectedItem.color}">${selectedItem.title}</h2>
+                    
+                    <div class="glass-panel p-6 rounded-lg mb-8 border-l-4 border-indigo-500">
+                        <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">Data Profile</h4>
+                        <p class="text-lg font-light leading-relaxed text-gray-200">${selectedItem.desc}</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="glass-panel p-4 rounded">
+                            <h4 class="text-[10px] uppercase text-gray-500 mb-2">Synthesis Mechanism</h4>
+                            <div class="font-mono text-sm text-indigo-300">${selectedItem.synthesisType}</div>
+                        </div>
+                         <div class="glass-panel p-4 rounded">
+                            <h4 class="text-[10px] uppercase text-gray-500 mb-2">Acoustic Status</h4>
+                            <div class="flex items-center gap-2">
+                                <div class="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div>
+                                <span class="text-sm">Synthesizing</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Trigger Audio
+            playSound(selectedItem.synthesisType);
+        }
+
+        // --- VISUALIZER LOOP ---
+        function drawVisualizer() {
+            requestAnimationFrame(drawVisualizer);
+            if (!analyser) return;
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            analyser.getByteTimeDomainData(dataArray);
+
+            canvasCtx.fillStyle = 'rgb(15, 23, 42)'; // BG
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+            canvasCtx.lineWidth = 2;
+            canvasCtx.strokeStyle = '#6366f1'; // Line Color
+
+            canvasCtx.beginPath();
+            const sliceWidth = canvas.width * 1.0 / bufferLength;
+            let x = 0;
+
+            for(let i = 0; i < bufferLength; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = v * canvas.height/2;
+
+                if(i === 0) canvasCtx.moveTo(x, y);
+                else canvasCtx.lineTo(x, y);
+
+                x += sliceWidth;
+            }
+
+            canvasCtx.lineTo(canvas.width, canvas.height/2);
+            canvasCtx.stroke();
+        }
+
+        // --- EVENT LISTENERS ---
+        document.getElementById('master-switch').addEventListener('click', initAudio);
+        
+        document.getElementById('master-volume').addEventListener('input', (e) => {
+            if(masterGain) masterGain.gain.value = e.target.value;
+        });
+
+        document.getElementById('soulprint-btn').addEventListener('click', () => {
+            if(!audioCtx) initAudio();
+            // Update UI manually for this special event
+            const panel = document.getElementById('content-panel');
+            panel.innerHTML = `
+                <div class="max-w-3xl mx-auto text-center mt-20">
+                    <h2 class="text-4xl font-light mb-2 text-white">The Cosmic Soulprint</h2>
+                    <p class="text-sm text-gray-400 mb-8">Subtraction Protocol Executed. The Residue.</p>
+                    <div class="w-24 h-24 rounded-full border border-white/20 mx-auto flex items-center justify-center animate-pulse">
+                        <div class="w-20 h-20 rounded-full bg-indigo-500/20 blur-xl"></div>
+                    </div>
+                </div>
+            `;
+            playSound('soulprint');
+        });
+
+        // Initialize UI
+        renderSidebar();
+
+        // Handle resize for canvas
+        window.addEventListener('resize', () => {
+            canvas.width = document.querySelector('.visualizer-container').clientWidth;
+            canvas.height = document.querySelector('.visualizer-container').clientHeight;
+        });
+        // Initial sizing
+        setTimeout(() => {
+             canvas.width = document.querySelector('.visualizer-container').clientWidth;
+             canvas.height = document.querySelector('.visualizer-container').clientHeight;
+        }, 100);
+
+    </script>
+</body>
+</html>
