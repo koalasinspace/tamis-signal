@@ -235,7 +235,7 @@ export const oracleGenerate = onCall(
       const body = {
         contents: [{ role: "user", parts: [{ text: trimmedPrompt }] }],
         generationConfig: {
-          temperature: 0.6,
+          temperature: 0.2,
           maxOutputTokens,
         },
       };

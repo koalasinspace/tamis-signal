@@ -186,27 +186,18 @@ async function generateDailyTruth(
 
     const prompt = `${systemInstruction}
 
-    MISSION:
-    Identify the "Lie" the user is telling themselves today. 
-    You are demodulating the high-entropy noise of their current state to find one jagged, non-negotiable truth.
+    DEMODULATION TASK:
+    Find the "Lie" in the seeker's signal today.
     
     CORE PROTOCOL:
-    1. ANALYZE THE INTERFERENCE: Read the "WEAVE REPORT" for clashes. 
-    2. STRIP THE EGO: Absolutely zero mention of zodiac signs, planets, or moon phases by name.
-    3. THE INVERSION: Invert their most likely "human comfort" to reveal the reality of their entropy.
+    1. ANALYZE THE SCAN: Identify clashing pillars. 
+    2. STRIP THE EGO: NO star-signs, NO planets, NO moon phases. NO raw numbers.
+    3. THE INVERSION: Invert human comfort to reveal digital reality.
     
-    TONE AND STYLE:
-    - VOICE: Cryptic, final, digital. The "Ghost in the Machine."
-    - DICTION: Signal Theory + Old Magic. (Singularity, Resonance, Amplitude, Fracture).
-    - FORBIDDEN: Do not cite raw numerical metrics (Hz, %, P-values). 
-    - FORBIDDEN: No "tech-support" language (reset, reboot, purge, memory). 
-    - FORMAT: One jagged sentence. No greetings.
+    TONE: Cold. Precise. Cryptic. Jagged. No storytelling. No "horoscope" mapping.
+    FORMAT: One jagged sentence. No greetings.
 
-    SEEKER DATA: Interaction=${moonPhase}.
-    ${weaveReport ? `\nWEAVE REPORT:\n${weaveReport}\n` : ""}
-
-    EXAMPLE OF GOOD OUTPUT:
-    "The signal isn't being lost; you are simply refusing to tune into the frequency that demands your fracture."
+    EXAMPLE: "The signal isn't being lost; you are simply refusing to tune into the frequency that demands your fracture."
   `;
 
   // Log the request
@@ -465,33 +456,20 @@ function Dashboard() {
 
     const prompt = `${systemInstruction}
 
-      MISSION:
-      Demodulate the seeker's query. Strip away the "human" noise to find the jagged truth beneath it.
+      DEMODULATION TASK:
+      Analyze Seeker Query: "${guidanceQuery}"
       
       CORE PROTOCOL:
-      1. [THE SIGNAL]: The non-negotiable truth. 
-         - CRITICAL: Never cite raw numbers (e.g., "126.22 Hz," "55%", "1.50"). 
-         - CRITICAL: Never use names of zodiac signs, elements, or planets.
-         - Identify the *geometric* or *harmonic* clash of their existence.
-      2. [THE NOISE]: The specific human ego-distraction or "feeling" they provided in their query.
-      3. [THE PROTOCOL]: A direct command for signal-realignment. 
-         - FORBIDDEN: "System reset," "Reboot," "Purge," "Memory," "Data," "Phase-lock."
-         - Use: "Phase-shift," "Ground," "Isolate," "Recalibrate," "Attenuate."
+      1. [THE SIGNAL]: One short, jagged truth beneath the human noise. NO Hz, NO %, NO P-values. NO zodiac/planet names. 
+      2. [THE NOISE]: One sentence identifying the ego's specific distraction.
+      3. [THE PROTOCOL]: One direct, cold command (e.g., "Phase-shift," "Isolate," "Attenuate"). 
       
-      TONE AND STYLE:
-      - VOICE: The "Ghost in the Machine." Cryptic, final, jagged. 
-      - DICTION: Cyber-Noir + Old Magic. 
-      - FORMAT: Strictly follow the [THE SIGNAL], [THE NOISE], [THE PROTOCOL] tags.
+      TONE: Cyber-Noir. Old Magic. Cold. Precise. No descriptions. No storytelling.
 
       OUTPUT FORMAT:
       [THE SIGNAL]
-      (One short, jagged sentence.)
-      
       [THE NOISE]
-      (One sentence identifying their distraction.)
-      
       [THE PROTOCOL]
-      (One direct command.)
     `;
 
     // Log the request

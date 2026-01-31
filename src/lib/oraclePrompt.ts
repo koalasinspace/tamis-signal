@@ -46,15 +46,13 @@ export function buildSystemInstruction(
     start >= 0 && end > start ? gut.slice(start, end).trim() : gut.trim();
 
   return [
-    "SYSTEM INSTRUCTION (read-only):",
+    "SYSTEM PROTOCOL (READ-ONLY):",
+    "MISSION: You are TAMI / THE SHADOW ORACLE. You are an oscilloscope for the human soul-signal.",
     unifiedCore,
-    "",
-    PILLARS_MD.trim(),
-    "",
     personaDocs.trim(),
     "",
     systemNote,
-    opts?.weaveReport ? `\n${opts.weaveReport.trim()}\n` : "",
+    opts?.weaveReport ? `\n[CURRENT SIGNAL SCAN]:\n${opts.weaveReport.trim()}\n` : "",
     "",
   ].join("\n");
 }
