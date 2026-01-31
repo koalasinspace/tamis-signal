@@ -312,6 +312,7 @@ function Dashboard() {
 
   const themeValues = useMemo(() => getThemeValues(userData?.favoriteColor ?? "purple"), [userData?.favoriteColor]);
   const role = userData?.role ?? "user";
+  const isDev = role === "owner" || role === "admin" || role === "dev";
   const soulprintComplete =
     userData?.soulprintComplete ??
     (userData?.destinyNumber != null && userData.destinyNumber > 0);
@@ -418,10 +419,11 @@ function Dashboard() {
   const handleThemeChange = async (newTheme: string) => {
     if (!currentUser?.uid || !userData) return;
     try {
-      await setDoc(doc(db, "users", currentUser.uid), { favoriteColor: newTheme }, { merge: true });
       setUserData({ ...userData, favoriteColor: newTheme });
+      await setDoc(doc(db, "users", currentUser.uid), { favoriteColor: newTheme }, { merge: true });
     } catch (err) {
       console.error("Failed to update theme", err);
+      alert("System error: Failed to update theme signature.");
     }
   };
 
@@ -736,7 +738,7 @@ function Dashboard() {
               <>
                 <SubNavButton active={activeSubTabs.soulprint === "identity"} onClick={() => setActiveSubTabs({ ...activeSubTabs, soulprint: "identity" })} label="Identity" />
                 <SubNavButton active={activeSubTabs.soulprint === "profile"} onClick={() => setActiveSubTabs({ ...activeSubTabs, soulprint: "profile" })} label="Profile" />
-                {(role === "admin" || role === "owner") && (
+                {isDev && (
                   <SubNavButton active={activeSubTabs.soulprint === "dev"} onClick={() => setActiveSubTabs({ ...activeSubTabs, soulprint: "dev" })} label="System Debug" />
                 )}
               </>
@@ -771,7 +773,7 @@ function Dashboard() {
                     {(() => {
                       const today = todayDateString();
                       const refreshCount = userData?.dailyTruth?.date === today ? (userData.dailyTruth.refreshCount ?? 0) : 0;
-                      const isDevUser = role === "admin" || role === "owner";
+                      const isDevUser = isDev;
                       const canRefresh = isDevUser || refreshCount < 3;
                       return (
                         <button
@@ -1125,13 +1127,25 @@ function Dashboard() {
                     </h2>
                     <p className="text-slate-500 small font-mono">SOULPRINT_SIGNATURE • CORE_METRICS</p>
                   </div>
-                  <button
-                    onClick={() => navigate("/soulprint")}
-                    className="btn btn-sm btn-outline-primary rounded-pill font-mono"
-                    style={{ fontSize: '10px' }}
-                  >
-                    RE-TUNE_SIGNAL
-                  </button>
+                  <div className="d-flex gap-2">
+                    <div className="dropdown">
+                      <button className="btn btn-sm btn-outline-primary rounded-pill font-mono dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style={{ fontSize: '10px' }}>
+                        THEME
+                      </button>
+                      <ul className="dropdown-menu dropdown-menu-dark bg-slate-900 border-slate-800 shadow-lg">
+                        {["purple", "indigo", "emerald", "amber", "crimson", "obsidian", "ghost"].map(t => (
+                          <li key={t}><button className="dropdown-item small font-mono py-2" onClick={() => handleThemeChange(t)}>{t.toUpperCase()}</button></li>
+                        ))}
+                      </ul>
+                    </div>
+                    <button
+                      onClick={() => navigate("/soulprint")}
+                      className="btn btn-sm btn-outline-primary rounded-pill font-mono"
+                      style={{ fontSize: '10px' }}
+                    >
+                      RE-TUNE
+                    </button>
+                  </div>
                 </header>
                 <div className="signal-card mb-4 scanline-container">
                   <div className="row g-4 align-items-center">
@@ -1461,7 +1475,7 @@ function Dashboard() {
               </>
             )}
 
-            {activeSubTabs.soulprint === "dev" && (role === "admin" || role === "owner") && (
+            {activeSubTabs.soulprint === "dev" && isDev && (
               <>
                 <header className="mb-4">
                   <h2 className="display-6 font-serif text-white mb-2">
@@ -1491,6 +1505,9 @@ function Dashboard() {
                         </div>
                         <div className="small text-slate-400 font-mono mt-1" style={{ fontSize: '10px' }}>
                           ROLE: {role}
+                        </div>
+                        <div className="small text-slate-400 font-mono mt-1" style={{ fontSize: '10px' }}>
+                          IS_DEV: {isDev ? "TRUE" : "FALSE"}
                         </div>
                         <div className="small text-slate-400 font-mono mt-1" style={{ fontSize: '10px' }}>
                           VERIFIED: {currentUser?.emailVerified ? "TRUE" : "FALSE"}
