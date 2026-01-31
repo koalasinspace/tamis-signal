@@ -77,36 +77,39 @@ import { generateWeaveReport } from "./lib/soul_weaver";
 const todayDateString = () =>
   new Date().toISOString().slice(0, 10);
 
-/** Maps color names to hex and rgb values for CSS variable injection. */
-function getThemeValues(colorName: string): {
+interface ThemeValues {
   accent: string;
   accentRGB: string;
   border: string;
   bg?: string;
   bgRGB?: string;
   cardBg?: string;
-} {
+}
+
+const THEME_MAP: Record<string, ThemeValues> = {
+  red: { accent: "#f87171", accentRGB: "248, 113, 113", border: "rgba(248, 113, 113, 0.2)" },
+  blue: { accent: "#60a5fa", accentRGB: "96, 165, 250", border: "rgba(96, 165, 250, 0.2)" },
+  green: { accent: "#4ade80", accentRGB: "74, 222, 128", border: "rgba(74, 222, 128, 0.2)" },
+  yellow: { accent: "#fbbf24", accentRGB: "251, 191, 36", border: "rgba(251, 191, 36, 0.2)" },
+  orange: { accent: "#fb923c", accentRGB: "251, 146, 60", border: "rgba(251, 146, 60, 0.2)" },
+  purple: { accent: "#a855f7", accentRGB: "168, 85, 247", border: "rgba(168, 85, 247, 0.2)" },
+  violet: { accent: "#8b5cf6", accentRGB: "139, 92, 246", border: "rgba(139, 92, 246, 0.2)" },
+  pink: { accent: "#f472b6", accentRGB: "244, 114, 182", border: "rgba(244, 114, 182, 0.2)" },
+  indigo: { accent: "#818cf8", accentRGB: "129, 140, 248", border: "rgba(129, 140, 248, 0.2)" },
+  teal: { accent: "#2dd4bf", accentRGB: "45, 212, 191", border: "rgba(45, 212, 191, 0.2)" },
+  cyan: { accent: "#22d3ee", accentRGB: "34, 211, 238", border: "rgba(34, 211, 238, 0.2)" },
+  emerald: { accent: "#34d399", accentRGB: "52, 211, 153", border: "rgba(52, 211, 153, 0.2)" },
+  // Theme Presets
+  amber: { accent: "#fbbf24", accentRGB: "251, 191, 36", border: "rgba(251, 191, 36, 0.2)", bg: "#0f172a", bgRGB: "15, 23, 42", cardBg: "rgba(30, 41, 59, 0.6)" },
+  crimson: { accent: "#ef4444", accentRGB: "239, 68, 68", border: "rgba(239, 68, 68, 0.2)", bg: "#110000", bgRGB: "17, 0, 0", cardBg: "rgba(40, 0, 0, 0.6)" },
+  obsidian: { accent: "#818cf8", accentRGB: "129, 140, 248", border: "rgba(129, 140, 248, 0.1)", bg: "#000000", bgRGB: "0, 0, 0", cardBg: "rgba(15, 23, 42, 0.8)" },
+  ghost: { accent: "#94a3b8", accentRGB: "148, 163, 184", border: "rgba(148, 163, 184, 0.2)", bg: "#020617", bgRGB: "2, 6, 23", cardBg: "rgba(15, 23, 42, 0.4)" },
+};
+
+/** Maps color names to hex and rgb values for CSS variable injection. */
+function getThemeValues(colorName: string): ThemeValues {
   const normalized = (colorName || "").toLowerCase().trim();
-  const map: Record<string, { accent: string; accentRGB: string; border: string; bg?: string; bgRGB?: string; cardBg?: string }> = {
-    red: { accent: "#f87171", accentRGB: "248, 113, 113", border: "rgba(248, 113, 113, 0.2)" },
-    blue: { accent: "#60a5fa", accentRGB: "96, 165, 250", border: "rgba(96, 165, 250, 0.2)" },
-    green: { accent: "#4ade80", accentRGB: "74, 222, 128", border: "rgba(74, 222, 128, 0.2)" },
-    yellow: { accent: "#fbbf24", accentRGB: "251, 191, 36", border: "rgba(251, 191, 36, 0.2)" },
-    orange: { accent: "#fb923c", accentRGB: "251, 146, 60", border: "rgba(251, 146, 60, 0.2)" },
-    purple: { accent: "#a855f7", accentRGB: "168, 85, 247", border: "rgba(168, 85, 247, 0.2)" },
-    violet: { accent: "#8b5cf6", accentRGB: "139, 92, 246", border: "rgba(139, 92, 246, 0.2)" },
-    pink: { accent: "#f472b6", accentRGB: "244, 114, 182", border: "rgba(244, 114, 182, 0.2)" },
-    indigo: { accent: "#818cf8", accentRGB: "129, 140, 248", border: "rgba(129, 140, 248, 0.2)" },
-    teal: { accent: "#2dd4bf", accentRGB: "45, 212, 191", border: "rgba(45, 212, 191, 0.2)" },
-    cyan: { accent: "#22d3ee", accentRGB: "34, 211, 238", border: "rgba(34, 211, 238, 0.2)" },
-    emerald: { accent: "#34d399", accentRGB: "52, 211, 153", border: "rgba(52, 211, 153, 0.2)" },
-    // Theme Presets
-    amber: { accent: "#fbbf24", accentRGB: "251, 191, 36", border: "rgba(251, 191, 36, 0.2)", bg: "#0f172a", bgRGB: "15, 23, 42", cardBg: "rgba(30, 41, 59, 0.6)" },
-    crimson: { accent: "#ef4444", accentRGB: "239, 68, 68", border: "rgba(239, 68, 68, 0.2)", bg: "#110000", bgRGB: "17, 0, 0", cardBg: "rgba(40, 0, 0, 0.6)" },
-    obsidian: { accent: "#818cf8", accentRGB: "129, 140, 248", border: "rgba(129, 140, 248, 0.1)", bg: "#000000", bgRGB: "0, 0, 0", cardBg: "rgba(15, 23, 42, 0.8)" },
-    ghost: { accent: "#94a3b8", accentRGB: "148, 163, 184", border: "rgba(148, 163, 184, 0.2)", bg: "#020617", bgRGB: "2, 6, 23", cardBg: "rgba(15, 23, 42, 0.4)" },
-  };
-  return map[normalized] ?? map["purple"];
+  return THEME_MAP[normalized] || THEME_MAP.purple;
 }
 
 const HIGH_ANXIETY_KEYWORDS = [
@@ -1576,7 +1579,7 @@ function GrimoireModal({
           </div>
           <div className="modal-body p-4 p-md-5 text-slate-300 lh-lg small overflow-auto custom-scrollbar" style={{ maxHeight: '60vh' }}>
             <div className="font-serif fs-5 mb-4 text-white opacity-90" style={{ fontStyle: 'italic' }}>
-              &ldquo;The sequence unfolds according to the initial conditions.&rdquo;
+              "The sequence unfolds according to the initial conditions."
             </div>
             <p className="mb-4">{description}</p>
             {elementEntry?.description && (
