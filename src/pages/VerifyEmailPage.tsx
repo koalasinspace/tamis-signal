@@ -11,40 +11,50 @@ export default function VerifyEmailPage() {
     setLoading(true);
     try {
       await resendVerification();
-      setMessage("Verification email sent. Check your inbox (and spam).");
+      setMessage("Verification signal dispatched. Check primary and secondary nodes.");
     } catch {
-      setMessage("Failed to resend. Try again later.");
+      setMessage("Relay failure. Retry sequence in 60s.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-purple-50 font-sans flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/40 via-slate-950 to-slate-950" />
-      <div className="bg-slate-900/80 backdrop-blur-md border border-purple-500/30 p-8 rounded-3xl w-full max-w-lg shadow-2xl relative z-10 text-center">
-        <h1 className="text-2xl font-serif text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-indigo-300 mb-2">
-          Confirm your email
-        </h1>
-        <p className="text-slate-400 text-sm mb-6">
-          We sent a verification link to <strong className="text-purple-200">{currentUser?.email}</strong>. Click it to activate your account, then log in.
+    <div className="min-vh-100 d-flex align-items-center justify-content-center p-3 position-relative overflow-hidden scanline-container">
+      <div className="signal-card w-100 max-w-lg p-4 p-md-5 shadow-lg text-center animate-in fade-in duration-500">
+        <header className="mb-5">
+          <h1 className="fs-4 font-serif text-white text-gradient">
+            Email_Verification
+          </h1>
+          <p className="text-slate-500 small font-mono mt-2" style={{ fontSize: '10px' }}>
+            AWAITING_CONFIRMATION • TARGET: {currentUser?.email}
+          </p>
+        </header>
+
+        <p className="text-slate-400 small mb-4 lh-lg">
+          A verification link has been transmitted to your node. Activate it to finalize the synchronization.
         </p>
+
         {message && (
-          <p className="mb-4 text-sm text-purple-300">{message}</p>
+          <div className={`alert p-2 small mb-4 font-mono ${message.includes('failure') ? 'alert-danger border-opacity-20 bg-danger bg-opacity-10 text-red-200' : 'alert-info border-opacity-20 bg-theme-opacity-10 text-accent'}`}>
+            &gt; {message}
+          </div>
         )}
-        <div className="flex flex-col gap-3">
+
+        <div className="d-grid gap-3">
           <button
             onClick={handleResend}
             disabled={loading}
-            className="w-full bg-purple-600 hover:bg-purple-500 text-white font-medium py-3 rounded disabled:opacity-50"
+            className="btn btn-primary bg-theme-accent border-0 py-3 rounded-pill font-mono small text-white"
           >
-            {loading ? "Sending…" : "Resend verification email"}
+            {loading ? "TRANSMITTING..." : "RESEND_SIGNAL"}
           </button>
           <button
             onClick={() => logOut()}
-            className="w-full text-slate-400 hover:text-white text-sm"
+            className="btn btn-link text-slate-600 hover-text-white text-decoration-none font-mono small"
+            style={{ fontSize: '10px' }}
           >
-            Sign out
+            TERMINATE_SESSION
           </button>
         </div>
       </div>

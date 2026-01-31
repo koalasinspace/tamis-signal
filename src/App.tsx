@@ -77,31 +77,26 @@ import { generateWeaveReport } from "./lib/soul_weaver";
 const todayDateString = () =>
   new Date().toISOString().slice(0, 10);
 
-/** Maps color names to Tailwind class strings for atmospheric personalization. Default: purple/indigo. */
-function getThemeColor(colorName: string): {
-  text: string;
-  textMuted: string;
-  border: string;
-  borderLight: string;
-  bg: string;
-  bgHover: string;
-  shadow: string;
+/** Maps color names to hex and rgb values for CSS variable injection. */
+function getThemeValues(colorName: string): {
   accent: string;
+  accentRGB: string;
+  border: string;
 } {
   const normalized = (colorName || "").toLowerCase().trim();
-  const map: Record<string, { text: string; textMuted: string; border: string; borderLight: string; bg: string; bgHover: string; shadow: string; accent: string }> = {
-    red: { text: "text-red-200", textMuted: "text-red-400", border: "border-red-500/30", borderLight: "border-red-500/20", bg: "bg-red-600", bgHover: "hover:bg-red-500", shadow: "shadow-red-500/50", accent: "text-red-400" },
-    blue: { text: "text-blue-200", textMuted: "text-blue-400", border: "border-blue-500/30", borderLight: "border-blue-500/20", bg: "bg-blue-600", bgHover: "hover:bg-blue-500", shadow: "shadow-blue-500/50", accent: "text-blue-400" },
-    green: { text: "text-green-200", textMuted: "text-green-400", border: "border-green-500/30", borderLight: "border-green-500/20", bg: "bg-green-600", bgHover: "hover:bg-green-500", shadow: "shadow-green-500/50", accent: "text-green-400" },
-    yellow: { text: "text-amber-200", textMuted: "text-amber-400", border: "border-amber-500/30", borderLight: "border-amber-500/20", bg: "bg-amber-600", bgHover: "hover:bg-amber-500", shadow: "shadow-amber-500/50", accent: "text-amber-400" },
-    orange: { text: "text-orange-200", textMuted: "text-orange-400", border: "border-orange-500/30", borderLight: "border-orange-500/20", bg: "bg-orange-600", bgHover: "hover:bg-orange-500", shadow: "shadow-orange-500/50", accent: "text-orange-400" },
-    purple: { text: "text-purple-200", textMuted: "text-purple-400", border: "border-purple-500/30", borderLight: "border-purple-500/20", bg: "bg-purple-600", bgHover: "hover:bg-purple-500", shadow: "shadow-purple-500/50", accent: "text-purple-400" },
-    violet: { text: "text-violet-200", textMuted: "text-violet-400", border: "border-violet-500/30", borderLight: "border-violet-500/20", bg: "bg-violet-600", bgHover: "hover:bg-violet-500", shadow: "shadow-violet-500/50", accent: "text-violet-400" },
-    pink: { text: "text-pink-200", textMuted: "text-pink-400", border: "border-pink-500/30", borderLight: "border-pink-500/20", bg: "bg-pink-600", bgHover: "hover:bg-pink-500", shadow: "shadow-pink-500/50", accent: "text-pink-400" },
-    indigo: { text: "text-indigo-200", textMuted: "text-indigo-400", border: "border-indigo-500/30", borderLight: "border-indigo-500/20", bg: "bg-indigo-600", bgHover: "hover:bg-indigo-500", shadow: "shadow-indigo-500/50", accent: "text-indigo-400" },
-    teal: { text: "text-teal-200", textMuted: "text-teal-400", border: "border-teal-500/30", borderLight: "border-teal-500/20", bg: "bg-teal-600", bgHover: "hover:bg-teal-500", shadow: "shadow-teal-500/50", accent: "text-teal-400" },
-    cyan: { text: "text-cyan-200", textMuted: "text-cyan-400", border: "border-cyan-500/30", borderLight: "border-cyan-500/20", bg: "bg-cyan-600", bgHover: "hover:bg-cyan-500", shadow: "shadow-cyan-500/50", accent: "text-cyan-400" },
-    emerald: { text: "text-emerald-200", textMuted: "text-emerald-400", border: "border-emerald-500/30", borderLight: "border-emerald-500/20", bg: "bg-emerald-600", bgHover: "hover:bg-emerald-500", shadow: "shadow-emerald-500/50", accent: "text-emerald-400" },
+  const map: Record<string, { accent: string; accentRGB: string; border: string }> = {
+    red: { accent: "#f87171", accentRGB: "248, 113, 113", border: "rgba(248, 113, 113, 0.2)" },
+    blue: { accent: "#60a5fa", accentRGB: "96, 165, 250", border: "rgba(96, 165, 250, 0.2)" },
+    green: { accent: "#4ade80", accentRGB: "74, 222, 128", border: "rgba(74, 222, 128, 0.2)" },
+    yellow: { accent: "#fbbf24", accentRGB: "251, 191, 36", border: "rgba(251, 191, 36, 0.2)" },
+    orange: { accent: "#fb923c", accentRGB: "251, 146, 60", border: "rgba(251, 146, 60, 0.2)" },
+    purple: { accent: "#a855f7", accentRGB: "168, 85, 247", border: "rgba(168, 85, 247, 0.2)" },
+    violet: { accent: "#8b5cf6", accentRGB: "139, 92, 246", border: "rgba(139, 92, 246, 0.2)" },
+    pink: { accent: "#f472b6", accentRGB: "244, 114, 182", border: "rgba(244, 114, 182, 0.2)" },
+    indigo: { accent: "#818cf8", accentRGB: "129, 140, 248", border: "rgba(129, 140, 248, 0.2)" },
+    teal: { accent: "#2dd4bf", accentRGB: "45, 212, 191", border: "rgba(45, 212, 191, 0.2)" },
+    cyan: { accent: "#22d3ee", accentRGB: "34, 211, 238", border: "rgba(34, 211, 238, 0.2)" },
+    emerald: { accent: "#34d399", accentRGB: "52, 211, 153", border: "rgba(52, 211, 153, 0.2)" },
   };
   return map[normalized] ?? map["purple"];
 }
@@ -123,17 +118,14 @@ async function generateDailyTruth(
   const currentRefreshCount = user.dailyTruth?.date === today ? (user.dailyTruth.refreshCount ?? 0) : 0;
   const isDevUser = user.role === "dev" || user.role === "admin" || user.role === "owner";
   
-  // If not forcing refresh and already have today's truth, skip
   if (!forceRefresh && user.dailyTruth?.date === today) {
     return { success: true, reason: "already_generated" };
   }
   
-  // If forcing refresh, check the limit (max 3 refreshes per day) - dev users bypass limit
   if (forceRefresh && currentRefreshCount >= 3 && !isDevUser) {
     return { success: false, reason: "refresh_limit_reached" };
   }
 
-  // Validate required soulprint fields before generating
   const missingFields: string[] = [];
   if (!user.name) missingFields.push("name");
   if (!user.zodiacSign) missingFields.push("zodiacSign");
@@ -144,9 +136,7 @@ async function generateDailyTruth(
 
   if (missingFields.length > 0) {
     console.error("[generateDailyTruth] Missing required soulprint fields", { missingFields });
-    // Log validation failure
     await logGenerativeValidationFailure(uid, "dailyTruth", user, missingFields);
-    // Set a fallback message instead of failing silently
     const fallbackMessage = "Your soulprint is still forming. Complete your profile to receive daily truths.";
     const updated: UserProfile = {
       ...user,
@@ -177,14 +167,7 @@ async function generateDailyTruth(
   const weaveReport = await generateWeaveReport(enrichedUser).catch(() => null);
   const systemInstruction = buildSystemInstruction(enrichedUser, entropyScore, { weaveReport });
 
-  // Build Shadow Energy from recent journal entries
-  const allEntries = user.journalEntries ?? [];
-  const lastThreeEntries = allEntries.slice(-3);
-  const shadowEnergyBlock = lastThreeEntries.length > 0
-    ? `RECENT SHADOW ENERGY:\n${lastThreeEntries.map(e => `[${e.date || "Unknown date"}] ${e.entry || "No reflection"}`).join("\n")}`
-    : "RECENT SHADOW ENERGY:\n[No recent journal entries]";
-
-    const prompt = `${systemInstruction}
+  const prompt = `${systemInstruction}
 
     DEMODULATION TASK:
     Find the "Lie" in the seeker's signal today.
@@ -200,14 +183,12 @@ async function generateDailyTruth(
     EXAMPLE: "The signal isn't being lost; you are simply refusing to tune into the frequency that demands your fracture."
   `;
 
-  // Log the request
   const startTime = Date.now();
   const logId = await logGenerativeRequest(uid, "dailyTruth", prompt, enrichedUser, {
     validationPassed: true,
     journalEntriesCount: user.journalEntries?.length,
   });
 
-  // Calculate new refresh count (increment if refreshing, otherwise 0 for new day)
   const newRefreshCount = forceRefresh ? currentRefreshCount + 1 : 0;
 
   try {
@@ -217,7 +198,6 @@ async function generateDailyTruth(
       (result.data as any)?.text?.trim?.() ||
       "The void is silent today.";
     
-    // Log success
     await logGenerativeSuccess(logId, message, duration, "gemini-2.5-flash", 1024);
 
     const dailyTruthData = { date: today, message, refreshCount: newRefreshCount };
@@ -230,21 +210,11 @@ async function generateDailyTruth(
     return { success: true };
   } catch (error: any) {
     const duration = Date.now() - startTime;
-    // Log error
     await logGenerativeError(logId, {
       message: error?.message || "Unknown error",
       code: error?.code,
       details: error?.details,
     }, duration);
-    // #region agent log
-    console.error("[generateDailyTruth] Error", {
-      errorMessage: error?.message,
-      errorCode: error?.code,
-      errorDetails: error?.details,
-      fullError: error
-    });
-    // #endregion
-    // Set fallback message on error
     const fallbackMessage = "The void is silent today. The connection to the oracle is weak—try again later.";
     const dailyTruthData = { date: today, message: fallbackMessage, refreshCount: currentRefreshCount };
     const updated: UserProfile = {
@@ -261,27 +231,26 @@ async function generateDailyTruth(
   }
 }
 
-// --- DASHBOARD (main app when logged in + verified + soulprint complete) ---
 function Dashboard() {
   const navigate = useNavigate();
   const { currentUser, userData, setUserData, logOut } = useAuth();
-  const [activeTab, setActiveTab] = useState<
-    "daily" | "tarot" | "profile" | "guidance" | "journal" | "soulprint" | "dev" | "grimoire"
-  >("daily");
+  
+  // Primary Navigation Categories
+  const [activeCategory, setActiveCategory] = useState<"dashboard" | "void" | "archives" | "soulprint">("dashboard");
+  
+  // Sub-navigation state for each category
+  const [activeSubTabs, setActiveSubTabs] = useState({
+    void: "ask",
+    archives: "journal",
+    soulprint: "identity"
+  });
+
   const [guidanceQuery, setGuidanceQuery] = useState("");
   const [guidanceResponse, setGuidanceResponse] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingDailyTruth, setIsGeneratingDailyTruth] = useState(false);
   const [cardsFlipped, setCardsFlipped] = useState<number[]>([]);
   const [readingResult, setReadingResult] = useState<string | null>(null);
-  const [showPrivacy, setShowPrivacy] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
-  const [selectedAttribute, setSelectedAttribute] = useState<{
-    type: keyof typeof ESOTERIC_DATA;
-    key: string;
-    title: string;
-    subtitle?: string;
-  } | null>(null);
   const [journalEntryText, setJournalEntryText] = useState("");
   const [showUpsellCard, setShowUpsellCard] = useState(false);
   const [grimoireCategory, setGrimoireCategory] = useState<string>(
@@ -292,15 +261,28 @@ function Dashboard() {
   const [devPingStatus, setDevPingStatus] = useState<string | null>(null);
   const [devPingLoading, setDevPingLoading] = useState(false);
   const [refreshLimitReached, setRefreshLimitReached] = useState(false);
+  const [selectedAttribute, setSelectedAttribute] = useState<{
+    type: keyof typeof ESOTERIC_DATA;
+    key: string;
+    title: string;
+    subtitle?: string;
+  } | null>(null);
   const isGrimoireModalOpen = selectedAttribute !== null;
 
-  const theme = getThemeColor(userData?.favoriteColor ?? "purple");
+  const themeValues = useMemo(() => getThemeValues(userData?.favoriteColor ?? "purple"), [userData?.favoriteColor]);
   const role = userData?.role ?? "user";
   const soulprintComplete =
     userData?.soulprintComplete ??
     (userData?.destinyNumber != null && userData.destinyNumber > 0);
 
-  // --- Sonification / Entanglement ---
+  // Inject dynamic theme variables
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--theme-accent", themeValues.accent);
+    root.style.setProperty("--theme-accent-rgb", themeValues.accentRGB);
+    root.style.setProperty("--theme-border", themeValues.border);
+  }, [themeValues]);
+
   const entropyScore = userData ? estimateEntropyScore(userData) : 50;
   const entanglementSettings = calculateEntanglement(entropyScore);
   const cosmicAudio = useCosmicAudio({
@@ -364,10 +346,6 @@ function Dashboard() {
     });
   }, [currentUser?.uid, userData, setUserData]);
 
-  useEffect(() => {
-    if (activeTab === "dev" && role !== "admin" && role !== "owner" && role !== "dev") setActiveTab("daily");
-  }, [activeTab, role]);
-
   const handleDevPingWrite = async () => {
     if (!currentUser?.uid) return;
     setDevPingLoading(true);
@@ -406,7 +384,6 @@ function Dashboard() {
   const handleGuidanceRequest = async () => {
     if (!guidanceQuery.trim() || !userData || !currentUser) return;
     
-    // Validate required soulprint fields
     const guidanceMissingFields: string[] = [];
     if (!userData.name) guidanceMissingFields.push("name");
     if (!userData.zodiacSign) guidanceMissingFields.push("zodiacSign");
@@ -416,7 +393,6 @@ function Dashboard() {
     if (userData.destinyNumber === 0) guidanceMissingFields.push("destinyNumber");
 
     if (guidanceMissingFields.length > 0) {
-      // Log validation failure
       await logGenerativeValidationFailure(currentUser.uid, "guidance", userData, guidanceMissingFields, guidanceQuery);
       setGuidanceResponse("Your soulprint is incomplete. Complete your profile to receive guidance.");
       return;
@@ -427,13 +403,6 @@ function Dashboard() {
     const queryLower = guidanceQuery.toLowerCase();
     const hasAnxietyKeyword = HIGH_ANXIETY_KEYWORDS.some((kw) => queryLower.includes(kw));
 
-    const allEntries = userData.journalEntries ?? [];
-    const lastThree = allEntries.slice(-3);
-    const recentShadowBlock = lastThree.length > 0
-      ? `RECENT SHADOW ENERGY:\n${lastThree.map(e => `[${e.date || "Unknown date"}] ${e.entry || "No reflection"}`).join("\n")}`
-      : "RECENT SHADOW ENERGY:\n[No recent journal entries]";
-
-    // Calculate derived values
     const lifePath = userData.lifePathNumber ?? (userData.birthday ? calculateLifePath(userData.birthday) : 0);
     const planetaryRuler = userData.planetaryRuler ?? (userData.birthday ? getPlanetaryRuler(userData.birthday) : "Unknown");
     const chineseZodiac = userData.chineseZodiac ?? (userData.birthday ? getChineseZodiac(userData.birthday) : "Unknown");
@@ -472,7 +441,6 @@ function Dashboard() {
       [THE PROTOCOL]
     `;
 
-    // Log the request
     const guidanceStartTime = Date.now();
     const guidanceLogId = await logGenerativeRequest(currentUser.uid, "guidance", prompt, enrichedUser, {
       validationPassed: true,
@@ -487,27 +455,17 @@ function Dashboard() {
         "The void is silent today.";
       
       const guidanceDuration = Date.now() - guidanceStartTime;
-      // Log success
       await logGenerativeSuccess(guidanceLogId, text, guidanceDuration, "gemini-2.5-flash", 1024);
 
       setGuidanceResponse(text);
       if (hasAnxietyKeyword) setShowUpsellCard(true);
     } catch (error: any) {
       const guidanceDuration = Date.now() - guidanceStartTime;
-      // Log error
       await logGenerativeError(guidanceLogId, {
         message: error?.message || "Unknown error",
         code: error?.code,
         details: error?.details,
       }, guidanceDuration);
-      // #region agent log
-      console.error("[handleGuidanceRequest] Error", {
-        errorMessage: error?.message,
-        errorCode: error?.code,
-        errorDetails: error?.details,
-        fullError: error
-      });
-      // #endregion
       const errorMsg = error?.message || error?.code || "Unknown error";
       setGuidanceResponse(
         `The connection to the ether is weak: ${errorMsg}. Check your internet or try again later.`
@@ -659,100 +617,102 @@ function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans pb-20 md:pb-0 md:pl-20">
+    <div className="min-vh-100 bg-slate-950 text-slate-200 font-sans pb-5 pb-md-0 ps-md-5">
       {isGrimoireModalOpen && selectedAttribute && (
         <GrimoireModal
           selectedAttribute={selectedAttribute}
           onClose={() => setSelectedAttribute(null)}
         />
       )}
-      <div className={`md:hidden flex items-center justify-between p-4 bg-slate-900/80 backdrop-blur border-b ${theme.borderLight} sticky top-0 z-40`}>
-        <h1 className={`font-serif text-xl ${theme.text}`}>Tami&apos;s Signal</h1>
-        <div className={`text-xs font-mono ${theme.textMuted}`}>
+      <div className={`d-md-none d-flex align-items-center justify-content-between p-3 bg-slate-900 bg-opacity-80 backdrop-blur border-bottom border-opacity-20 sticky-top z-40`}>
+        <h1 className="font-serif fs-4 text-accent">Tami&apos;s Signal</h1>
+        <div className="small font-mono text-slate-500">
           Path {userData?.destinyNumber} • {userData?.zodiacSign}
         </div>
       </div>
 
-      <nav className={`fixed md:left-0 md:top-0 md:h-full md:w-20 md:flex-col bottom-0 w-full h-16 bg-slate-900 border-t md:border-t-0 md:border-r ${theme.borderLight} flex items-center justify-around md:justify-start md:pt-8 z-50`}>
-        <div className={`hidden md:block mb-8 ${theme.accent} animate-pulse`}>
+      <nav className={`fixed-bottom d-flex align-items-center justify-content-around d-md-flex flex-md-column position-md-fixed top-md-0 start-md-0 h-md-100 w-md-20 pt-md-5 bg-slate-900 border-top border-md-top-0 border-md-end border-opacity-10 z-50`}>
+        <div className="d-none d-md-block mb-4 text-accent animate-pulse-subtle">
           <Radio size={32} />
         </div>
         <NavButton
-          active={activeTab === "daily"}
-          onClick={() => setActiveTab("daily")}
+          active={activeCategory === "dashboard"}
+          onClick={() => setActiveCategory("dashboard")}
           icon={<Sparkles size={24} />}
-          label="Daily"
+          label="Signal"
         />
         <NavButton
-          active={activeTab === "guidance"}
-          onClick={() => setActiveTab("guidance")}
-          icon={<MessageCircle size={24} />}
-          label="Guide"
+          active={activeCategory === "void"}
+          onClick={() => setActiveCategory("void")}
+          icon={<Moon size={24} />}
+          label="The Void"
         />
         <NavButton
-          active={activeTab === "tarot"}
-          onClick={() => setActiveTab("tarot")}
-          icon={<Lock size={24} />}
-          label="Tarot"
-        />
-        <NavButton
-          active={activeTab === "journal"}
-          onClick={() => setActiveTab("journal")}
-          icon={<BookOpen size={24} />}
-          label="Journal"
-        />
-        <NavButton
-          active={activeTab === "grimoire"}
-          onClick={() => setActiveTab("grimoire")}
+          active={activeCategory === "archives"}
+          onClick={() => setActiveCategory("archives")}
           icon={<Library size={24} />}
-          label="Grimoire"
+          label="Archives"
         />
         <NavButton
-          active={activeTab === "soulprint"}
-          onClick={() => setActiveTab("soulprint")}
+          active={activeCategory === "soulprint"}
+          onClick={() => setActiveCategory("soulprint")}
           icon={<Fingerprint size={24} />}
-          label="Soulprint"
-        />
-        {(role === "admin" || role === "owner") && (
-          <NavButton
-            active={activeTab === "dev"}
-            onClick={() => setActiveTab("dev")}
-            icon={<Terminal size={24} />}
-            label="Dev"
-          />
-        )}
-        <NavButton
-          active={activeTab === "profile"}
-          onClick={() => setActiveTab("profile")}
-          icon={<User size={24} />}
-          label="Profile"
+          label="System"
         />
       </nav>
 
-      <main className="max-w-2xl mx-auto p-6 pt-8">
-        {activeTab === "daily" && (
+      <main className="max-w-2xl mx-auto p-4 pt-5">
+        {/* Category Header / Sub-nav */}
+        {activeCategory !== "dashboard" && (
+          <div className="d-flex gap-3 mb-4 overflow-x-auto pb-2 custom-scrollbar">
+            {activeCategory === "void" && (
+              <>
+                <SubNavButton active={activeSubTabs.void === "ask"} onClick={() => setActiveSubTabs({ ...activeSubTabs, void: "ask" })} label="Ask the Void" />
+                <SubNavButton active={activeSubTabs.void === "tarot"} onClick={() => setActiveSubTabs({ ...activeSubTabs, void: "tarot" })} label="Tarot Room" />
+              </>
+            )}
+            {activeCategory === "archives" && (
+              <>
+                <SubNavButton active={activeSubTabs.archives === "journal"} onClick={() => setActiveSubTabs({ ...activeSubTabs, archives: "journal" })} label="Shadow Journal" />
+                <SubNavButton active={activeSubTabs.archives === "grimoire"} onClick={() => setActiveSubTabs({ ...activeSubTabs, archives: "grimoire" })} label="Grimoire" />
+              </>
+            )}
+            {activeCategory === "soulprint" && (
+              <>
+                <SubNavButton active={activeSubTabs.soulprint === "identity"} onClick={() => setActiveSubTabs({ ...activeSubTabs, soulprint: "identity" })} label="Identity" />
+                <SubNavButton active={activeSubTabs.soulprint === "profile"} onClick={() => setActiveSubTabs({ ...activeSubTabs, soulprint: "profile" })} label="Profile" />
+                {(role === "admin" || role === "owner") && (
+                  <SubNavButton active={activeSubTabs.soulprint === "dev"} onClick={() => setActiveSubTabs({ ...activeSubTabs, soulprint: "dev" })} label="System Debug" />
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {activeCategory === "dashboard" && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <header className="mb-6">
-              <h2 className="text-3xl font-serif text-white mb-2">
-                Daily Truth
-              </h2>
-              <div className="flex gap-2 text-xs">
-                <span className={`bg-slate-800/60 px-2 py-1 rounded border ${theme.borderLight}`}>
-                  <span className={theme.accent}>Destiny #{userData?.destinyNumber}</span>
-                </span>
-                <span className="bg-slate-800/60 px-2 py-1 rounded border border-slate-600">
-                  <span className="text-slate-400">Archetype: {userData?.tarotArchetype}</span>
-                </span>
+            <header className="mb-4 d-flex justify-content-between align-items-end">
+              <div>
+                <h2 className="display-6 font-serif text-white mb-1">
+                  The Hub
+                </h2>
+                <p className="text-slate-500 small font-mono mb-0">SIGNAL_DEMODULATION_ACTIVE</p>
+              </div>
+              <div className="text-end">
+                <div className="small font-mono text-accent" style={{ fontSize: '10px' }}>SYSTEM_HEALTH</div>
+                <div className="small font-mono text-slate-400" style={{ fontSize: '10px' }}>ENTROPY: {entropyScore}%</div>
               </div>
             </header>
-            <div className={`bg-gradient-to-br from-slate-900 to-slate-950 border ${theme.border} p-8 rounded-2xl shadow-2xl relative overflow-hidden`}>
-              <div className={`absolute top-0 right-0 p-4 opacity-5 ${theme.accent}`}>
+
+            {/* Main Truth Card */}
+            <div className="signal-card scanline-container mb-4">
+              <div className="position-absolute top-0 end-0 p-4 opacity-5 text-accent">
                 <Sun size={120} />
               </div>
-              <div className="relative z-10">
-                <div className={`flex items-center justify-between gap-2 mb-4 ${theme.textMuted} text-xs font-bold uppercase tracking-widest`}>
-                  <span className="flex items-center gap-2"><Star size={12} /> {new Date().toLocaleDateString()}</span>
-                  <div className="flex items-center gap-1">
+              <div className="position-relative z-10">
+                <div className="d-flex align-items-center justify-content-between gap-2 mb-4 text-slate-500 small font-bold text-uppercase tracking-widest">
+                  <span className="d-flex align-items-center gap-2"><Star size={12} /> DAILY_TRUTH</span>
+                  <div className="d-flex align-items-center gap-1">
                     {(() => {
                       const today = todayDateString();
                       const refreshCount = userData?.dailyTruth?.date === today ? (userData.dailyTruth.refreshCount ?? 0) : 0;
@@ -763,22 +723,21 @@ function Dashboard() {
                           type="button"
                           onClick={handleRefreshDailyTruth}
                           disabled={!canRefresh || isGeneratingDailyTruth}
-                          className={`p-2 rounded-lg transition-colors flex items-center gap-1 ${
+                          className={`btn btn-sm btn-link text-slate-400 p-1 ${
                             canRefresh && !isGeneratingDailyTruth
-                              ? "hover:bg-slate-700/50"
-                              : "opacity-40 cursor-not-allowed"
+                              ? "hover-bg-slate-700"
+                              : "opacity-40"
                           }`}
                           title={isDevUser ? "Unlimited refreshes (dev)" : canRefresh ? `Refresh (${3 - refreshCount} left today)` : "Daily limit reached"}
                         >
                           <RefreshCw size={18} className={isGeneratingDailyTruth ? "animate-spin" : ""} />
-                          <span className="text-[10px] font-mono">{isDevUser ? "∞" : 3 - refreshCount}</span>
                         </button>
                       );
                     })()}
                     <button
                       type="button"
                       onClick={handleShareDailyTruth}
-                      className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
+                      className="btn btn-sm btn-link text-slate-400 p-1 hover-bg-slate-700"
                       title="Share"
                     >
                       <Share2 size={18} />
@@ -786,844 +745,708 @@ function Dashboard() {
                   </div>
                 </div>
                 {isGeneratingDailyTruth ? (
-                  <p className={`text-lg ${theme.textMuted} italic`}>
+                  <p className="fs-5 text-slate-500 fst-italic">
                     Regenerating…
                   </p>
                 ) : (
-                  <p className="text-xl md:text-2xl font-serif leading-relaxed text-slate-50">
+                  <p className="fs-4 font-serif lh-base text-slate-50">
                     "{userData?.dailyTruth?.message ?? ""}"
                   </p>
                 )}
-                {refreshLimitReached && (
-                  <p className="mt-2 text-xs text-amber-400/80 font-mono">
-                    You&apos;ve reached your daily refresh limit. Return tomorrow for a new truth.
-                  </p>
+              </div>
+            </div>
+
+            {/* Summary Grid */}
+            <div className="row g-3 mb-4">
+              <div className="col-6 col-md-3">
+                <div className="signal-card p-3 h-100">
+                  <div className="small font-mono text-slate-500 mb-1" style={{ fontSize: '9px' }}>ENTANGLE</div>
+                  <div className="text-accent font-mono fs-5">{Math.round(entanglementSettings.entanglementPercent)}%</div>
+                  <div className="small text-slate-600 font-mono" style={{ fontSize: '8px' }}>{entanglementSettings.label.toUpperCase()}</div>
+                </div>
+              </div>
+              <div className="col-6 col-md-3">
+                <div className="signal-card p-3 h-100">
+                  <div className="small font-mono text-slate-500 mb-1" style={{ fontSize: '9px' }}>DESTINY</div>
+                  <div className="text-white font-serif fs-5">#{userData?.destinyNumber}</div>
+                  <div className="small text-slate-600 font-mono" style={{ fontSize: '8px' }}>CORE_ID</div>
+                </div>
+              </div>
+              <div className="col-6 col-md-3">
+                <div className="signal-card p-3 h-100">
+                  <div className="small font-mono text-slate-500 mb-1" style={{ fontSize: '9px' }}>RULER</div>
+                  <div className="text-white font-serif fs-5" style={{ fontSize: '1rem' }}>{userData?.planetaryRuler || "NONE"}</div>
+                  <div className="small text-slate-600 font-mono" style={{ fontSize: '8px' }}>SCAN_PHASE</div>
+                </div>
+              </div>
+              <div className="col-6 col-md-3">
+                <div className="signal-card p-3 h-100">
+                  <div className="small font-mono text-slate-500 mb-1" style={{ fontSize: '9px' }}>ARCHETYPE</div>
+                  <div className="text-white font-serif fs-5 truncate" style={{ fontSize: '0.9rem' }}>{userData?.tarotArchetype?.split(' ').pop()}</div>
+                  <div className="small text-slate-600 font-mono" style={{ fontSize: '8px' }}>RESONANCE</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Weave Report */}
+            <div className="signal-card shadow-sm">
+              <div className="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+                <h2 className="text-white font-serif fs-5 mb-0 text-gradient">Live Signal Scan</h2>
+                <div className="small text-slate-500 font-mono" style={{ fontSize: '10px' }}>
+                  {weaveLoading
+                    ? "RECALIBRATING..."
+                    : weaveReport
+                      ? "LOCKED"
+                      : "IDLE"}
+                </div>
+              </div>
+              <div className="mt-3">
+                {weaveReport ? (
+                  <div className="small lh-base text-slate-300 whitespace-pre-wrap font-mono bg-slate-950 bg-opacity-40 border border-slate-800 rounded-3 p-4 max-h-72 overflow-auto custom-scrollbar" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.8)' }}>
+                    {weaveReport}
+                  </div>
+                ) : (
+                  <div className="small text-slate-500 bg-slate-950 bg-opacity-20 border border-slate-800 rounded-3 p-4">
+                    Pulse detected. Awaiting further data alignment.
+                  </div>
                 )}
-                <div className="mt-6 pt-4 border-t border-slate-800">
-                  <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">
-                    Soulprint Signature (data used)
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {userData?.zodiacSign && (
-                      <button
-                        type="button"
-                        onClick={() => openGrimoire("Zodiac Signs", userData.zodiacSign)}
-                        className={`px-2 py-1 rounded-full border ${theme.borderLight} bg-slate-900/50 hover:bg-slate-800/60 transition-colors text-xs flex items-center gap-1`}
-                        title="Zodiac Sign"
-                      >
-                        <span className={theme.accent}>{getAttributeSymbol("zodiac", userData.zodiacSign)}</span>
-                        <span className="text-slate-300">{userData.zodiacSign}</span>
-                      </button>
-                    )}
-                    {userData?.destinyNumber != null && userData.destinyNumber > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => openGrimoire("Numerology", String(userData.destinyNumber))}
-                        className={`px-2 py-1 rounded-full border ${theme.borderLight} bg-slate-900/50 hover:bg-slate-800/60 transition-colors text-xs flex items-center gap-1`}
-                        title="Destiny Number"
-                      >
-                        <span className={theme.accent}>#{userData.destinyNumber}</span>
-                        <span className="text-slate-300">Destiny</span>
-                      </button>
-                    )}
-                    {userData?.birthday && (
-                      <button
-                        type="button"
-                        onClick={() => openGrimoire("Planetary Rulers", userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday))}
-                        className={`px-2 py-1 rounded-full border ${theme.borderLight} bg-slate-900/50 hover:bg-slate-800/60 transition-colors text-xs flex items-center gap-1`}
-                        title="Planetary Ruler"
-                      >
-                        <span className={theme.accent}>{getAttributeSymbol("planetaryRuler", userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday))}</span>
-                        <span className="text-slate-300">{userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday)}</span>
-                      </button>
-                    )}
-                    {userData?.birthday && (
-                      <button
-                        type="button"
-                        onClick={() => openGrimoire("Moon Phases", userData.moonPhase ?? getMoonPhase(userData.birthday))}
-                        className={`px-2 py-1 rounded-full border ${theme.borderLight} bg-slate-900/50 hover:bg-slate-800/60 transition-colors text-xs flex items-center gap-1`}
-                        title="Moon Phase"
-                      >
-                        <span className={theme.accent}>{getAttributeSymbol("moonPhase", userData.moonPhase ?? getMoonPhase(userData.birthday))}</span>
-                        <span className="text-slate-300">{userData.moonPhase ?? getMoonPhase(userData.birthday)}</span>
-                      </button>
-                    )}
-                    {userData?.favoriteColor && (
-                      <button
-                        type="button"
-                        onClick={() => openGrimoire("Power Colors", userData.favoriteColor.charAt(0).toUpperCase() + userData.favoriteColor.slice(1))}
-                        className={`px-2 py-1 rounded-full border ${theme.borderLight} bg-slate-900/50 hover:bg-slate-800/60 transition-colors text-xs flex items-center gap-2`}
-                        title="Power Color"
-                      >
-                        <span className="inline-block w-3 h-3 rounded-full border border-slate-700" style={{ backgroundColor: userData.favoriteColor }} />
-                        <span className="text-slate-300">{userData.favoriteColor}</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
               </div>
-            </div>
-            <div className={`mt-6 p-6 rounded-2xl border ${theme.borderLight} bg-slate-900/50`}>
-              <h3 className={`text-sm font-serif font-medium ${theme.text} mb-2`}>Shadow Journal</h3>
-              {userData?.dailyTruth?.message ? (
-                <blockquote className={`mb-4 pl-4 border-l-2 ${theme.borderLight} italic text-slate-400 text-sm leading-relaxed`}>
-                  &ldquo;{userData.dailyTruth.message}&rdquo;
-                </blockquote>
-              ) : (
-                <p className="text-slate-500 text-xs mb-4">Reflect on today&apos;s energy.</p>
-              )}
-              <textarea
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-slate-600 min-h-[100px] resize-y"
-                placeholder="What does this stir in you?"
-                value={journalEntryText}
-                onChange={(e) => setJournalEntryText(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={handleSaveJournalEntry}
-                disabled={!journalEntryText.trim()}
-                className={`mt-3 px-4 py-2 rounded-lg text-sm font-medium text-white ${theme.bg} ${theme.bgHover} disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                Save Entry
-              </button>
             </div>
           </div>
         )}
 
-        {activeTab === "guidance" && (
+        {activeCategory === "void" && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <header className="mb-8">
-              <h2 className="text-3xl font-serif text-white mb-2">
-                Ask the Void
-              </h2>
-              <p className="text-slate-400 text-sm">
-                Your Soulprint is active. Answers will be tailored to your
-                Numerology and Place of Birth.
-              </p>
-            </header>
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 mb-6 focus-within:border-purple-500/50 transition-colors">
-              <textarea
-                className="w-full bg-transparent p-4 text-lg text-white focus:outline-none min-h-[120px] resize-none placeholder-slate-600"
-                placeholder="What is holding me back?"
-                value={guidanceQuery}
-                onChange={(e) => setGuidanceQuery(e.target.value)}
-              />
-              <div className="flex justify-end px-4 pb-2">
-                <button
-                  onClick={handleGuidanceRequest}
-                  disabled={isGenerating || !guidanceQuery}
-                  className={`px-6 py-2 rounded-lg font-medium transition-all ${
-                    isGenerating ? "bg-slate-800 text-slate-500" : `text-white ${theme.bg} ${theme.bgHover}`
-                  }`}
-                >
-                  {isGenerating ? "Consulting Soulprint…" : "Ask"}
-                </button>
-              </div>
-            </div>
-            {guidanceResponse && (
-              <div className="bg-indigo-950/30 border border-indigo-500/30 p-6 rounded-2xl animate-in zoom-in-95 duration-300">
-                <h3 className="text-indigo-200 font-serif text-lg mb-2 flex items-center gap-2">
-                  <Sparkles size={16} /> Guidance
-                </h3>
-                <p className="text-slate-300 leading-relaxed">
-                  {guidanceResponse}
-                </p>
-              </div>
-            )}
-            {showUpsellCard && (
-              <div className="mt-6 p-6 rounded-2xl border-2 border-amber-600/50 bg-amber-950/20 animate-in zoom-in-95 duration-300">
-                <p className="text-amber-200 font-medium mb-2">This is heavy energy. Don&apos;t navigate it alone.</p>
-                <p className="text-slate-400 text-sm mb-4">Consider reaching out to a trusted friend, therapist, or guide who can hold space for you.</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "tarot" && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <header className="mb-8">
-              <h2 className="text-3xl font-serif text-white mb-2">
-                Tarot Room
-              </h2>
-            </header>
-            <div className="grid grid-cols-3 gap-2 h-48 mb-6">
-              {[0, 1, 2].map((idx) => (
-                <div
-                  key={idx}
-                  onClick={() => handleCardFlip(idx)}
-                  className={`relative w-full h-full rounded-lg cursor-pointer bg-indigo-900 border border-indigo-500/30 flex items-center justify-center transition-all ${
-                    cardsFlipped.includes(idx)
-                      ? "bg-slate-100 border-white"
-                      : ""
-                  }`}
-                >
-                  {cardsFlipped.includes(idx) ? (
-                    <span className="text-black font-bold text-xs p-1 text-center">
-                      Card {idx + 1}
-                    </span>
-                  ) : (
-                    <Sparkles className="text-indigo-400/50" />
-                  )}
-                </div>
-              ))}
-            </div>
-            {readingResult && (
-              <div className="bg-slate-900 p-4 rounded-xl border border-purple-500/20 text-slate-300 text-sm">
-                {readingResult}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "journal" && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <header className="mb-6 flex items-start justify-between flex-wrap gap-3">
-              <div>
-                <h2 className="text-3xl font-serif text-white mb-2">
-                  The Mirror
-                </h2>
-                <p className="text-slate-500 text-sm">
-                  Your Shadow Journal history. Reflect, then release.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handlePublish}
-                className={`px-4 py-2 rounded-xl border ${theme.borderLight} ${theme.bg} ${theme.text} text-sm font-medium hover:opacity-90 transition-opacity`}
-              >
-                Generate My Grimoire
-              </button>
-            </header>
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-              {((userData?.journalEntries ?? []).length === 0) ? (
-                <div className={`p-6 rounded-2xl border ${theme.borderLight} bg-slate-900/50 text-center text-slate-500 text-sm`}>
-                  No entries yet. Write from the Daily tab to fill the mirror.
-                </div>
-              ) : (
-                [...(userData?.journalEntries ?? [])].reverse().map((entry, idx) => {
-                  const list = userData?.journalEntries ?? [];
-                  const originalIndex = list.length - 1 - idx;
-                  const displayId = entry.id ?? `legacy-${originalIndex}`;
-                  const deleteKey = entry.id ?? originalIndex;
-                  return (
-                    <div
-                      key={displayId}
-                      className={`p-5 rounded-2xl border ${theme.borderLight} bg-slate-900/80 shadow-lg`}
-                    >
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <time className="text-xs font-mono text-slate-500 uppercase tracking-wider">
-                          {entry.date}
-                        </time>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteJournalEntry(deleteKey)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-colors"
-                          title="Delete entry"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                      <p className="text-slate-400 text-xs italic mb-2">{entry.prompt}</p>
-                      <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">{entry.entry}</p>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "grimoire" && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <header className="mb-6">
-              <h2 className="text-3xl font-serif text-white mb-2">Grimoire</h2>
-              <p className="text-slate-500 text-sm">
-                Ancient reference. Search a term, or tap a category.
-              </p>
-            </header>
-
-            <div className="mb-4 flex flex-wrap gap-2">
-              {Object.keys(GRIMOIRE_DATA).map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => {
-                    setGrimoireCategory(cat);
-                    setGrimoireSearch("");
-                    setGrimoireFocus(null);
-                  }}
-                  className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
-                    grimoireCategory === cat
-                      ? `${theme.bg} text-white border-transparent`
-                      : `bg-slate-900/50 text-slate-300 ${theme.borderLight} hover:bg-slate-800/60`
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            <div className={`mb-4 p-2 rounded-2xl border ${theme.borderLight} bg-slate-900/50`}>
-              <input
-                value={grimoireSearch}
-                onChange={(e) => setGrimoireSearch(e.target.value)}
-                placeholder="Search definitions…"
-                className="w-full bg-transparent p-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"
-              />
-            </div>
-
-            <div className="space-y-3">
-              {(GRIMOIRE_DATA[grimoireCategory] ?? [])
-                .filter((item) => {
-                  const q = grimoireSearch.trim().toLowerCase();
-                  if (!q) return true;
-                  return (
-                    item.name.toLowerCase().includes(q) ||
-                    item.meaning.toLowerCase().includes(q)
-                  );
-                })
-                .map((item) => {
-                  const id = makeGrimoireId(grimoireCategory, item.name);
-                  const isFocused =
-                    grimoireFocus?.category === grimoireCategory &&
-                    grimoireFocus?.name.toLowerCase() === item.name.toLowerCase();
-                  return (
-                    <div
-                      key={id}
-                      id={id}
-                      className={`p-5 rounded-2xl border bg-slate-900/80 ${
-                        isFocused ? theme.border : theme.borderLight
+            {activeSubTabs.void === "ask" && (
+              <>
+                <header className="mb-5">
+                  <h2 className="display-6 font-serif text-white mb-2">
+                    Ask the Void
+                  </h2>
+                  <p className="text-slate-500 small font-mono">
+                    SIGNAL: ACTIVE • COORDINATES: {userData?.birthPlace || "UNKNOWN"}
+                  </p>
+                </header>
+                <div className="signal-card mb-4">
+                  <textarea
+                    className="w-100 bg-transparent border-0 text-white focus-outline-none min-h-120 resize-none placeholder-slate-700 fs-5"
+                    placeholder="What is holding me back?"
+                    value={guidanceQuery}
+                    onChange={(e) => setGuidanceQuery(e.target.value)}
+                  />
+                  <div className="d-flex justify-content-end mt-3">
+                    <button
+                      onClick={handleGuidanceRequest}
+                      disabled={isGenerating || !guidanceQuery}
+                      className={`btn px-4 py-2 rounded-pill font-medium transition-all ${
+                        isGenerating ? "bg-slate-800 text-slate-500" : "btn-primary bg-theme-accent border-0 text-white"
                       }`}
                     >
-                      <h3 className={`font-serif text-lg ${theme.text}`}>{item.name}</h3>
-                      <p className="text-slate-300 text-sm leading-relaxed mt-2">
-                        {item.meaning}
-                      </p>
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "dev" && (role === "admin" || role === "owner") && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <header className="mb-6">
-              <h2 className="text-3xl font-serif text-white mb-2">
-                Dev Dashboard
-              </h2>
-              <p className="text-slate-500 text-sm">
-                Signal Dispatch
-              </p>
-            </header>
-            <div className="mb-4 p-6 rounded-2xl border border-[#533483]/30 bg-[#0f0f1a]/70 backdrop-blur shadow-lg shadow-purple-900/20">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-serif text-lg text-[#e2e8f0]">Dev Toolkit</h3>
-                  <p className="text-xs font-mono text-[#e2e8f0]/60 mt-1">
-                    Session + paths + quick copies
-                  </p>
-                </div>
-                <div className="text-xs font-mono text-[#d946ef]">Admin</div>
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-4 rounded-xl border border-[#533483]/25 bg-[#1a1a2e]/40">
-                  <div className="text-xs font-mono text-[#e2e8f0]/60 mb-2">SESSION</div>
-                  <div className="text-sm text-[#e2e8f0]">
-                    UID: <span className="font-mono">{currentUser?.uid ? `${currentUser.uid.slice(0, 8)}…` : "—"}</span>
-                  </div>
-                  <div className="text-sm text-[#e2e8f0] mt-1">
-                    Role: <span className="font-mono text-[#a855f7]">{role}</span>
-                  </div>
-                  <div className="text-sm text-[#e2e8f0] mt-1">
-                    Verified: <span className="font-mono">{currentUser?.emailVerified ? "true" : "false"}</span>
-                  </div>
-                  <div className="text-sm text-[#e2e8f0] mt-1">
-                    Soulprint: <span className="font-mono">{soulprintComplete ? "complete" : "incomplete"}</span>
-                  </div>
-                  <div className="text-sm text-[#e2e8f0] mt-1">
-                    Journal entries: <span className="font-mono">{(userData?.journalEntries ?? []).length}</span>
-                  </div>
-                  <div className="text-sm text-[#e2e8f0] mt-1">
-                    Daily truth: <span className="font-mono">{userData?.dailyTruth?.date ?? "—"}</span>
+                      {isGenerating ? "Consulting..." : "DEMODULATE"}
+                    </button>
                   </div>
                 </div>
-
-                <div className="p-4 rounded-xl border border-[#533483]/25 bg-[#1a1a2e]/40">
-                  <div className="text-xs font-mono text-[#e2e8f0]/60 mb-2">PATHS</div>
-                  <div className="text-[12px] font-mono text-[#e2e8f0]/80 break-all">
-                    users/{currentUser?.uid ?? "UID"}
-                  </div>
-                  <div className="text-[12px] font-mono text-[#e2e8f0]/80 break-all mt-1">
-                    artifacts/tamis-signal-v2/public/data/mail
-                  </div>
-                  <div className="text-[12px] font-mono text-[#e2e8f0]/80 break-all mt-1">
-                    artifacts/tamis-signal-v2/public/data/devPings
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => currentUser?.uid && navigator.clipboard?.writeText(currentUser.uid)}
-                  disabled={!currentUser?.uid}
-                  className="px-3 py-2 rounded-xl bg-[#0f0f1a]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono hover:border-[#d946ef]/60 hover:bg-[#0f0f1a]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Copy UID
-                </button>
-                <button
-                  type="button"
-                  onClick={() => currentUser?.uid && navigator.clipboard?.writeText(`users/${currentUser.uid}`)}
-                  disabled={!currentUser?.uid}
-                  className="px-3 py-2 rounded-xl bg-[#0f0f1a]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono hover:border-[#d946ef]/60 hover:bg-[#0f0f1a]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Copy User Doc Path
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard?.writeText("artifacts/tamis-signal-v2/public/data/mail")}
-                  className="px-3 py-2 rounded-xl bg-[#0f0f1a]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono hover:border-[#d946ef]/60 hover:bg-[#0f0f1a]/80 transition-colors"
-                >
-                  Copy Mail Path
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard?.writeText(typeof window !== "undefined" ? window.location.origin : "")}
-                  className="px-3 py-2 rounded-xl bg-[#0f0f1a]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono hover:border-[#d946ef]/60 hover:bg-[#0f0f1a]/80 transition-colors"
-                >
-                  Copy Origin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => userData && navigator.clipboard?.writeText(JSON.stringify(userData, null, 2))}
-                  disabled={!userData}
-                  className="px-3 py-2 rounded-xl bg-[#0f0f1a]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono hover:border-[#d946ef]/60 hover:bg-[#0f0f1a]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Copy userData JSON
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDevPingWrite}
-                  disabled={!currentUser?.uid || devPingLoading}
-                  className="px-3 py-2 rounded-xl bg-[#0f0f1a]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono hover:border-[#d946ef]/60 hover:bg-[#0f0f1a]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {devPingLoading ? "Writing Ping…" : "Ping Write Test"}
-                </button>
-              </div>
-
-              {devPingStatus && (
-                <div className="mt-3 p-3 rounded-xl border border-[#533483]/25 bg-[#1a1a2e]/40 text-sm text-[#e2e8f0]">
-                  <span className="font-mono text-[#e2e8f0]/70">Ping:</span>{" "}
-                  <span className="font-mono">{devPingStatus}</span>
-                </div>
-              )}
-            </div>
-            <SignalDispatch />
-            <GenerativeLogViewer />
-          </div>
-        )}
-
-        {activeTab === "soulprint" && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <header className="mb-6">
-              <h2 className="text-3xl font-serif text-white mb-2">
-                Soulprint
-              </h2>
-              <p className="text-slate-500 text-sm">
-                Your cosmic signature. Tap any card to open the Grimoire.
-              </p>
-            </header>
-            {/* Hero: Big Three — Sun Sign, Destiny Number, Tarot Archetype */}
-            <div className={`rounded-2xl border-2 p-6 mb-6 bg-gradient-to-br from-slate-900 to-slate-950 shadow-xl ${theme.border} ${theme.bg} bg-opacity-20`}>
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <button
-                  type="button"
-                  onClick={() =>
-                    userData?.zodiacSign &&
-                    setSelectedAttribute({
-                      type: "zodiac",
-                      key: userData.zodiacSign,
-                      title: userData.zodiacSign,
-                    })
-                  }
-                  className="flex items-center gap-4 flex-1 min-w-0 hover:opacity-90 transition-opacity text-left"
-                >
-                  <span className={`text-4xl flex-shrink-0 ${theme.accent}`} aria-hidden>
-                    {getAttributeSymbol("zodiac", userData?.zodiacSign ?? "")}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                      Sun Sign
-                    </div>
-                    <div className={`text-xl font-serif font-medium ${theme.text}`}>
-                      {userData?.zodiacSign}
-                    </div>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    userData?.destinyNumber != null &&
-                    setSelectedAttribute({
-                      type: "numerology",
-                      key: String(userData.destinyNumber),
-                      title: `Destiny Number ${userData.destinyNumber}`,
-                    })
-                  }
-                  className="flex items-center gap-4 flex-1 min-w-0 hover:opacity-90 transition-opacity text-left"
-                >
-                  <span className={`text-4xl flex-shrink-0 ${theme.accent}`} aria-hidden>
-                    #
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                      Destiny Number
-                    </div>
-                    <div className={`text-xl font-serif font-medium ${theme.text}`}>
-                      {userData?.destinyNumber}
-                    </div>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    userData?.tarotArchetype &&
-                    setSelectedAttribute({
-                      type: "tarot",
-                      key: userData.tarotArchetype,
-                      title: userData.tarotArchetype,
-                    })
-                  }
-                  className="flex items-center gap-4 flex-1 min-w-0 hover:opacity-90 transition-opacity text-left"
-                >
-                  <span className="flex-shrink-0 flex items-center justify-center w-10 h-10">
-                    {React.createElement(getPillarIcon("tarot"), { size: 28, className: theme.accent })}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                      Tarot Archetype
-                    </div>
-                    <div className={`text-xl font-serif font-medium ${theme.text} truncate`}>
-                      {userData?.tarotArchetype}
-                    </div>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* 2x3 Grid: Life Path, Chinese Zodiac, Planetary Ruler, Moon Phase, Chinese Element, Celtic Tree */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {userData?.birthday && (
-                <>
-                  <SoulprintCard
-                    theme={theme}
-                    pillar="lifePath"
-                    label="Life Path"
-                    value={String(userData.lifePathNumber ?? calculateLifePath(userData.birthday))}
-                    symbol={String(userData.lifePathNumber ?? calculateLifePath(userData.birthday))}
-                    grimoire={{
-                      type: "numerology",
-                      key: String(userData.lifePathNumber ?? calculateLifePath(userData.birthday)),
-                      title: `Life Path ${userData.lifePathNumber ?? calculateLifePath(userData.birthday)}`,
-                    }}
-                    onGrimoireClick={setSelectedAttribute}
-                  />
-                  <SoulprintCard
-                    theme={theme}
-                    pillar="chineseZodiac"
-                    label="Chinese Zodiac"
-                    value={[userData.chineseElement ?? getChineseElement(userData.birthday), userData.chineseZodiac ?? getChineseZodiac(userData.birthday)].filter(Boolean).join(" ")}
-                    symbol=""
-                    grimoire={{
-                      type: "chineseZodiac",
-                      key: userData.chineseZodiac ?? getChineseZodiac(userData.birthday),
-                      title: userData.chineseZodiac ?? getChineseZodiac(userData.birthday),
-                      subtitle: (userData.chineseElement ?? getChineseElement(userData.birthday)) + " Element",
-                    }}
-                    onGrimoireClick={setSelectedAttribute}
-                  />
-                  <SoulprintCard
-                    theme={theme}
-                    pillar="planetaryRuler"
-                    label="Planetary Ruler"
-                    value={userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday)}
-                    symbol={getAttributeSymbol("planetaryRuler", userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday))}
-                    grimoire={{
-                      type: "planetaryRuler",
-                      key: userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday),
-                      title: userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday),
-                    }}
-                    onGrimoireClick={setSelectedAttribute}
-                  />
-                  <SoulprintCard
-                    theme={theme}
-                    pillar="moonPhase"
-                    label="Moon Phase"
-                    value={userData.moonPhase ?? getMoonPhase(userData.birthday)}
-                    symbol={getAttributeSymbol("moonPhase", userData.moonPhase ?? getMoonPhase(userData.birthday))}
-                    grimoire={{
-                      type: "moonPhase",
-                      key: userData.moonPhase ?? getMoonPhase(userData.birthday),
-                      title: userData.moonPhase ?? getMoonPhase(userData.birthday),
-                    }}
-                    onGrimoireClick={setSelectedAttribute}
-                  />
-                  <SoulprintCard
-                    theme={theme}
-                    pillar="chineseElement"
-                    label="Chinese Element"
-                    value={userData.chineseElement ?? getChineseElement(userData.birthday)}
-                    symbol={getAttributeSymbol("chineseElement", userData.chineseElement ?? getChineseElement(userData.birthday))}
-                    grimoire={{
-                      type: "chineseElement",
-                      key: userData.chineseElement ?? getChineseElement(userData.birthday),
-                      title: userData.chineseElement ?? getChineseElement(userData.birthday),
-                    }}
-                    onGrimoireClick={setSelectedAttribute}
-                  />
-                  <SoulprintCard
-                    theme={theme}
-                    pillar="celticTree"
-                    label="Celtic Tree"
-                    value={userData.celticTree ?? getCelticTree(userData.birthday)}
-                    symbol={getAttributeSymbol("celticTree", "")}
-                    grimoire={{
-                      type: "celticTree",
-                      key: userData.celticTree ?? getCelticTree(userData.birthday),
-                      title: userData.celticTree ?? getCelticTree(userData.birthday),
-                    }}
-                    onGrimoireClick={setSelectedAttribute}
-                  />
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "profile" && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <header className="mb-6 flex items-center justify-between flex-wrap gap-3">
-              <h2 className="text-3xl font-serif text-white">
-                Soul Profile
-              </h2>
-              <button
-                onClick={() => navigate("/soulprint")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors ${theme.bg} ${theme.bgHover}`}
-              >
-                <Pencil size={16} />
-                Edit profile
-              </button>
-            </header>
-            <div className={`bg-slate-900/80 rounded-2xl p-6 mb-6 border ${theme.borderLight}`}>
-              <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-700">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-serif text-white shadow-lg ${theme.bg} ${theme.shadow}`}>
-                  {userData?.name?.charAt(0)}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-white font-bold text-lg">
-                      {userData?.name}
+                {guidanceResponse && (
+                  <div className="signal-card border-accent bg-theme-opacity-10 animate-in zoom-in-95 duration-300">
+                    <h3 className="text-accent font-serif fs-5 mb-3 d-flex align-items-center gap-2">
+                      <Sparkles size={16} /> DATA_RECEIVED
                     </h3>
-                    {role === "owner" && (
-                      <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full border ${theme.borderLight} ${theme.text}`}>
-                        <Crown size={14} className={theme.accent} />
-                        THE BOSS
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-slate-400 text-sm">
-                    Joined {new Date(userData?.joinDate || "").toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {userData?.zodiacSign && (
-                  <ProfilePillar
-                    label="Zodiac"
-                    value={userData.zodiacSign}
-                    Icon={getZodiacIcon(userData.zodiacSign)}
-                    grimoire={{ type: "zodiac", key: userData.zodiacSign, title: userData.zodiacSign }}
-                    onGrimoireClick={setSelectedAttribute}
-                  />
-                )}
-                {userData?.destinyNumber != null && userData.destinyNumber > 0 && (
-                  <ProfilePillar
-                    label="Destiny Number"
-                    value={String(userData.destinyNumber)}
-                    Icon={Hash}
-                    grimoire={{ type: "numerology", key: String(userData.destinyNumber), title: `Destiny Number ${userData.destinyNumber}` }}
-                    onGrimoireClick={setSelectedAttribute}
-                  />
-                )}
-                {userData?.tarotArchetype && (
-                  <ProfilePillar
-                    label="Tarot Archetype"
-                    value={userData.tarotArchetype}
-                    Icon={Layers}
-                    grimoire={{ type: "tarot", key: userData.tarotArchetype, title: userData.tarotArchetype }}
-                    onGrimoireClick={setSelectedAttribute}
-                  />
-                )}
-                {userData?.favoriteColor && (
-                  <ProfilePillar
-                    label="Power Color"
-                    value={userData.favoriteColor}
-                    Icon={Palette}
-                  />
-                )}
-                {userData?.birthPlace && (
-                  <ProfilePillar
-                    label="Birthplace Spirit"
-                    value={userData.birthPlace}
-                    Icon={MapPin}
-                    span={2}
-                  />
-                )}
-                {userData?.birthday && (
-                  <>
-                    <ProfilePillar
-                      label="Planetary Ruler"
-                      value={userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday)}
-                      Icon={getPlanetIcon(userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday))}
-                      grimoire={{
-                        type: "planetaryRuler",
-                        key: userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday),
-                        title: userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday),
-                      }}
-                      onGrimoireClick={setSelectedAttribute}
-                    />
-                    <ProfilePillar
-                      label="Chinese Zodiac"
-                      value={(() => {
-                        const el = userData.chineseElement ?? getChineseElement(userData.birthday);
-                        const an = userData.chineseZodiac ?? getChineseZodiac(userData.birthday);
-                        return [el, an].filter(Boolean).join(" ");
-                      })()}
-                      Icon={getChineseZodiacIcon(userData.chineseZodiac ?? getChineseZodiac(userData.birthday))}
-                      grimoire={{
-                        type: "chineseZodiac",
-                        key: userData.chineseZodiac ?? getChineseZodiac(userData.birthday),
-                        title: userData.chineseZodiac ?? getChineseZodiac(userData.birthday),
-                        subtitle: (userData.chineseElement ?? getChineseElement(userData.birthday)) + " Element",
-                      }}
-                      onGrimoireClick={setSelectedAttribute}
-                    />
-                    <ProfilePillar
-                      label="Life Path"
-                      value={String(userData.lifePathNumber ?? calculateLifePath(userData.birthday))}
-                      Icon={Hash}
-                      grimoire={{
-                        type: "numerology",
-                        key: String(userData.lifePathNumber ?? calculateLifePath(userData.birthday)),
-                        title: `Life Path ${userData.lifePathNumber ?? calculateLifePath(userData.birthday)}`,
-                      }}
-                      onGrimoireClick={setSelectedAttribute}
-                    />
-                    <ProfilePillar
-                      label="Moon Phase"
-                      value={userData.moonPhase ?? getMoonPhase(userData.birthday)}
-                      Icon={getMoonPhaseIcon(userData.moonPhase ?? getMoonPhase(userData.birthday))}
-                      grimoire={{
-                        type: "moonPhase",
-                        key: userData.moonPhase ?? getMoonPhase(userData.birthday),
-                        title: userData.moonPhase ?? getMoonPhase(userData.birthday),
-                      }}
-                      onGrimoireClick={setSelectedAttribute}
-                    />
-                    <ProfilePillar
-                      label="Celtic Tree"
-                      value={userData.celticTree ?? getCelticTree(userData.birthday)}
-                      Icon={getCelticTreeIcon(userData.celticTree ?? getCelticTree(userData.birthday))}
-                      grimoire={{
-                        type: "celticTree",
-                        key: userData.celticTree ?? getCelticTree(userData.birthday),
-                        title: userData.celticTree ?? getCelticTree(userData.birthday),
-                      }}
-                      onGrimoireClick={setSelectedAttribute}
-                    />
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="space-y-3">
-              <div className={`flex items-center justify-between p-3 rounded-lg border ${theme.borderLight} bg-slate-900/50`}>
-                <div className="flex items-center gap-3 text-slate-300">
-                  {userData?.pushNotificationsEnabled ? <Bell size={18} className={theme.accent} /> : <BellOff size={18} />}
-                  <span>Tami&apos;s Signal</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleToggleNotifications}
-                  disabled={!!userData?.pushNotificationsEnabled}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium text-white ${theme.bg} ${theme.bgHover} disabled:opacity-50 disabled:cursor-default`}
-                >
-                  {userData?.pushNotificationsEnabled ? "Enabled" : "Enable Tami's Signal"}
-                </button>
-              </div>
-              <div className={`p-3 rounded-lg border ${theme.borderLight} bg-slate-900/50`}>
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="text-slate-300">
-                    <div className="text-sm font-medium text-white">Persona Mode</div>
-                    <div className="text-xs text-slate-400">Choose who speaks through the Signal.</div>
-                  </div>
-                  <select
-                    value={userData?.personaMode ?? "tami"}
-                    onChange={(e) => handlePersonaModeChange(e.target.value as UserProfile["personaMode"])}
-                    className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
-                  >
-                    <option value="tami">Tami</option>
-                    <option value="oracle">Oracle</option>
-                  </select>
-                </div>
-              </div>
-              <div className={`p-3 rounded-lg border ${theme.borderLight} bg-slate-900/50`}>
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="text-slate-300">
-                    <div className="text-sm font-medium text-white">Cosmic Audio (Universe Drone)</div>
-                    <div className="text-xs text-slate-400">
-                      Entanglement: {Math.round(entanglementSettings.entanglementPercent)}% ({entanglementSettings.label})
+                    <div className="text-slate-300 lh-base small whitespace-pre-wrap font-mono">
+                      {guidanceResponse}
                     </div>
+                  </div>
+                )}
+                {showUpsellCard && (
+                  <div className="mt-4 p-4 rounded-2xl border border-warning border-opacity-30 bg-warning bg-opacity-10 animate-in zoom-in-95 duration-300">
+                    <p className="text-warning font-medium mb-2 small">CRITICAL_LOAD: High entropy detected.</p>
+                    <p className="text-slate-500 small mb-0">Consider professional grounding protocols.</p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {activeSubTabs.void === "tarot" && (
+              <>
+                <header className="mb-5">
+                  <h2 className="display-6 font-serif text-white mb-2">
+                    Tarot Room
+                  </h2>
+                  <p className="text-slate-500 small font-mono">3-CARD_SPREAD • CALIBRATE_ARCANA</p>
+                </header>
+                <div className="row g-3 mb-4" style={{ height: '14rem' }}>
+                  {[0, 1, 2].map((idx) => (
+                    <div key={idx} className="col-4 h-100">
+                      <div
+                        onClick={() => handleCardFlip(idx)}
+                        className={`signal-card w-100 h-100 p-0 d-flex align-items-center justify-content-center cursor-pointer transition-all ${
+                          cardsFlipped.includes(idx) ? "bg-slate-100 border-white" : ""
+                        }`}
+                      >
+                        {cardsFlipped.includes(idx) ? (
+                          <span className="text-black font-bold small p-2 text-center font-mono">
+                            ARCANA_{idx + 1}
+                          </span>
+                        ) : (
+                          <Sparkles className="text-accent opacity-30" size={32} />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {readingResult && (
+                  <div className="signal-card animate-in fade-in duration-500">
+                    <div className="text-slate-300 small font-mono lh-lg">
+                      {readingResult}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {activeCategory === "archives" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {activeSubTabs.archives === "journal" && (
+              <>
+                <header className="mb-4 d-flex align-items-start justify-content-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="display-6 font-serif text-white mb-2">
+                      The Mirror
+                    </h2>
+                    <p className="text-slate-500 small font-mono">
+                      LOG_HISTORY • ENCRYPTED_SESSIONS
+                    </p>
                   </div>
                   <button
                     type="button"
-                    onClick={handleToggleCosmicAudio}
-                    disabled={cosmicAudioLoading}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium text-white ${theme.bg} ${theme.bgHover} disabled:opacity-50`}
+                    onClick={handlePublish}
+                    className="btn btn-outline-primary btn-sm rounded-pill font-mono"
+                    style={{ fontSize: '10px' }}
                   >
-                    {cosmicAudioEnabled ? "Stop" : cosmicAudioLoading ? "Starting..." : "Start"}
+                    GENERATE_GRIMOIRE
+                  </button>
+                </header>
+                
+                <div className="signal-card mb-5">
+                  <h3 className="small font-mono text-accent mb-3">NEW_LOG_ENTRY</h3>
+                  <textarea
+                    className="w-100 bg-transparent border-0 text-white focus-outline-none min-h-100 resize-y small"
+                    placeholder="Capture the interference..."
+                    value={journalEntryText}
+                    onChange={(e) => setJournalEntryText(e.target.value)}
+                  />
+                  <div className="d-flex justify-content-end mt-3">
+                    <button
+                      type="button"
+                      onClick={handleSaveJournalEntry}
+                      disabled={!journalEntryText.trim()}
+                      className="btn btn-sm btn-primary bg-theme-accent border-0 rounded-pill px-3"
+                    >
+                      COMMIT_TO_VOID
+                    </button>
+                  </div>
+                </div>
+
+                <div className="d-grid gap-3 max-vh-60 overflow-y-auto ps-1 custom-scrollbar">
+                  {((userData?.journalEntries ?? []).length === 0) ? (
+                    <div className="signal-card text-center text-slate-600 small py-5 font-mono">
+                      ARCHIVE_EMPTY
+                    </div>
+                  ) : (
+                    [...(userData?.journalEntries ?? [])].reverse().map((entry, idx) => {
+                      const list = userData?.journalEntries ?? [];
+                      const originalIndex = list.length - 1 - idx;
+                      const displayId = entry.id ?? `legacy-${originalIndex}`;
+                      const deleteKey = entry.id ?? originalIndex;
+                      return (
+                        <div
+                          key={displayId}
+                          className="signal-card"
+                        >
+                          <div className="d-flex align-items-start justify-content-between gap-3 mb-3">
+                            <time className="small font-mono text-slate-500" style={{ fontSize: '9px' }}>
+                              [{entry.date}]
+                            </time>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteJournalEntry(deleteKey)}
+                              className="btn btn-sm text-slate-600 hover-text-danger p-0"
+                              title="Purge entry"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                          <p className="text-accent small fst-italic mb-2 opacity-70" style={{ fontSize: '11px' }}>&gt; {entry.prompt}</p>
+                          <p className="text-slate-300 small lh-base whitespace-pre-wrap">{entry.entry}</p>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            )}
+
+            {activeSubTabs.archives === "grimoire" && (
+              <>
+                <header className="mb-4">
+                  <h2 className="display-6 font-serif text-white mb-2">Grimoire</h2>
+                  <p className="text-slate-500 small font-mono">ANCIENT_REFERENCE • KNOWLEDGE_NODES</p>
+                </header>
+
+                <div className="mb-4 d-flex flex-wrap gap-2">
+                  {Object.keys(GRIMOIRE_DATA).map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => {
+                        setGrimoireCategory(cat);
+                        setGrimoireSearch("");
+                        setGrimoireFocus(null);
+                      }}
+                      className={`btn btn-sm rounded-pill font-mono transition-all ${
+                        grimoireCategory === cat
+                          ? "btn-primary bg-theme-accent border-0"
+                          : "btn-outline-secondary text-slate-400 border-opacity-20"
+                      }`}
+                      style={{ fontSize: '10px' }}
+                    >
+                      {cat.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="signal-card p-2 mb-4">
+                  <input
+                    value={grimoireSearch}
+                    onChange={(e) => setGrimoireSearch(e.target.value)}
+                    placeholder="Search knowledge nodes..."
+                    className="w-100 bg-transparent border-0 p-2 small text-slate-200 placeholder-slate-700 focus-outline-none"
+                  />
+                </div>
+
+                <div className="d-grid gap-3 max-vh-60 overflow-y-auto custom-scrollbar pe-2">
+                  {(GRIMOIRE_DATA[grimoireCategory] ?? [])
+                    .filter((item) => {
+                      const q = grimoireSearch.trim().toLowerCase();
+                      if (!q) return true;
+                      return (
+                        item.name.toLowerCase().includes(q) ||
+                        item.meaning.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((item) => {
+                      const id = makeGrimoireId(grimoireCategory, item.name);
+                      const isFocused =
+                        grimoireFocus?.category === grimoireCategory &&
+                        grimoireFocus?.name.toLowerCase() === item.name.toLowerCase();
+                      return (
+                        <div
+                          key={id}
+                          id={id}
+                          className={`signal-card ${isFocused ? "border-accent ring-accent" : ""}`}
+                        >
+                          <h3 className="font-serif fs-5 text-accent">{item.name}</h3>
+                          <p className="text-slate-400 small lh-base mt-2 mb-0">
+                            {item.meaning}
+                          </p>
+                        </div>
+                      );
+                    })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {activeCategory === "soulprint" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {activeSubTabs.soulprint === "identity" && (
+              <>
+                <header className="mb-4">
+                  <h2 className="display-6 font-serif text-white mb-2">
+                    Identity
+                  </h2>
+                  <p className="text-slate-500 small font-mono">SOULPRINT_SIGNATURE • CORE_METRICS</p>
+                </header>
+                <div className="signal-card mb-4 scanline-container">
+                  <div className="row g-4 align-items-center">
+                    <div className="col-12 col-md-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          userData?.zodiacSign &&
+                          setSelectedAttribute({
+                            type: "zodiac",
+                            key: userData.zodiacSign,
+                            title: userData.zodiacSign,
+                          })
+                        }
+                        className="btn btn-link text-decoration-none d-flex align-items-center gap-3 p-0 text-start"
+                      >
+                        <span className="fs-1 flex-shrink-0 text-accent" aria-hidden>
+                          {getAttributeSymbol("zodiac", userData?.zodiacSign ?? "")}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="small font-mono text-slate-500" style={{ fontSize: '9px' }}>SUN_SIGN</div>
+                          <div className="fs-5 font-serif text-white">{userData?.zodiacSign}</div>
+                        </div>
+                      </button>
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          userData?.destinyNumber != null &&
+                          setSelectedAttribute({
+                            type: "numerology",
+                            key: String(userData.destinyNumber),
+                            title: `Destiny Number ${userData.destinyNumber}`,
+                          })
+                        }
+                        className="btn btn-link text-decoration-none d-flex align-items-center gap-3 p-0 text-start"
+                      >
+                        <span className="fs-1 flex-shrink-0 text-accent font-mono" aria-hidden>#</span>
+                        <div className="min-w-0">
+                          <div className="small font-mono text-slate-500" style={{ fontSize: '9px' }}>DESTINY_ID</div>
+                          <div className="fs-5 font-serif text-white">{userData?.destinyNumber}</div>
+                        </div>
+                      </button>
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          userData?.tarotArchetype &&
+                          setSelectedAttribute({
+                            type: "tarot",
+                            key: userData.tarotArchetype,
+                            title: userData.tarotArchetype,
+                          })
+                        }
+                        className="btn btn-link text-decoration-none d-flex align-items-center gap-3 p-0 text-start"
+                      >
+                        <span className="flex-shrink-0 d-flex align-items-center justify-content-center bg-slate-800 bg-opacity-40 rounded-circle" style={{ width: '48px', height: '48px' }}>
+                          {React.createElement(getPillarIcon("tarot"), { size: 24, className: "text-accent" })}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="small font-mono text-slate-500" style={{ fontSize: '9px' }}>ARCHETYPE</div>
+                          <div className="fs-5 font-serif text-white truncate">{userData?.tarotArchetype}</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="row g-3">
+                  {userData?.birthday && (
+                    <>
+                      <SoulprintCard
+                        pillar="lifePath"
+                        label="LIFE_PATH"
+                        value={String(userData.lifePathNumber ?? calculateLifePath(userData.birthday))}
+                        symbol={String(userData.lifePathNumber ?? calculateLifePath(userData.birthday))}
+                        grimoire={{
+                          type: "numerology",
+                          key: String(userData.lifePathNumber ?? calculateLifePath(userData.birthday)),
+                          title: `Life Path ${userData.lifePathNumber ?? calculateLifePath(userData.birthday)}`,
+                        }}
+                        onGrimoireClick={setSelectedAttribute}
+                      />
+                      <SoulprintCard
+                        pillar="chineseZodiac"
+                        label="CHINESE_ZODIAC"
+                        value={[userData.chineseElement ?? getChineseElement(userData.birthday), userData.chineseZodiac ?? getChineseZodiac(userData.birthday)].filter(Boolean).join(" ")}
+                        symbol=""
+                        grimoire={{
+                          type: "chineseZodiac",
+                          key: userData.chineseZodiac ?? getChineseZodiac(userData.birthday),
+                          title: userData.chineseZodiac ?? getChineseZodiac(userData.birthday),
+                          subtitle: (userData.chineseElement ?? getChineseElement(userData.birthday)) + " Element",
+                        }}
+                        onGrimoireClick={setSelectedAttribute}
+                      />
+                      <SoulprintCard
+                        pillar="planetaryRuler"
+                        label="PLANET_RULER"
+                        value={userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday)}
+                        symbol={getAttributeSymbol("planetaryRuler", userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday))}
+                        grimoire={{
+                          type: "planetaryRuler",
+                          key: userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday),
+                          title: userData.planetaryRuler ?? getPlanetaryRuler(userData.birthday),
+                        }}
+                        onGrimoireClick={setSelectedAttribute}
+                      />
+                      <SoulprintCard
+                        pillar="moonPhase"
+                        label="MOON_PHASE"
+                        value={userData.moonPhase ?? getMoonPhase(userData.birthday)}
+                        symbol={getAttributeSymbol("moonPhase", userData.moonPhase ?? getMoonPhase(userData.birthday))}
+                        grimoire={{
+                          type: "moonPhase",
+                          key: userData.moonPhase ?? getMoonPhase(userData.birthday),
+                          title: userData.moonPhase ?? getMoonPhase(userData.birthday),
+                        }}
+                        onGrimoireClick={setSelectedAttribute}
+                      />
+                      <SoulprintCard
+                        pillar="chineseElement"
+                        label="CHINESE_EL"
+                        value={userData.chineseElement ?? getChineseElement(userData.birthday)}
+                        symbol={getAttributeSymbol("chineseElement", userData.chineseElement ?? getChineseElement(userData.birthday))}
+                        grimoire={{
+                          type: "chineseElement",
+                          key: userData.chineseElement ?? getChineseElement(userData.birthday),
+                          title: userData.chineseElement ?? getChineseElement(userData.birthday),
+                        }}
+                        onGrimoireClick={setSelectedAttribute}
+                      />
+                      <SoulprintCard
+                        pillar="celticTree"
+                        label="CELTIC_TREE"
+                        value={userData.celticTree ?? getCelticTree(userData.birthday)}
+                        symbol={getAttributeSymbol("celticTree", "")}
+                        grimoire={{
+                          type: "celticTree",
+                          key: userData.celticTree ?? getCelticTree(userData.birthday),
+                          title: userData.celticTree ?? getCelticTree(userData.birthday),
+                        }}
+                        onGrimoireClick={setSelectedAttribute}
+                      />
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+
+            {activeSubTabs.soulprint === "profile" && (
+              <>
+                <header className="mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+                  <h2 className="display-6 font-serif text-white">
+                    System Profile
+                  </h2>
+                  <button
+                    onClick={() => navigate("/soulprint")}
+                    className="btn btn-sm btn-outline-primary rounded-pill font-mono"
+                    style={{ fontSize: '10px' }}
+                  >
+                    RE-TUNE_SIGNAL
+                  </button>
+                </header>
+                <div className="signal-card mb-4">
+                  <div className="d-flex align-items-center gap-4 mb-4 pb-4 border-bottom border-slate-800">
+                    <div className="rounded-circle d-flex align-items-center justify-content-center fs-3 font-serif text-white bg-theme-opacity-20 border border-accent shadow-sm" style={{ width: '64px', height: '64px' }}>
+                      {userData?.name?.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="d-flex align-items-center gap-2 flex-wrap">
+                        <h3 className="text-white font-bold fs-5 mb-0">
+                          {userData?.name}
+                        </h3>
+                        {role === "owner" && (
+                          <span className="badge rounded-pill border border-accent text-accent small font-mono" style={{ fontSize: '9px' }}>
+                            ROOT_USER
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-slate-500 small font-mono mb-0 mt-1" style={{ fontSize: '10px' }}>
+                        INITIALIZED: {new Date(userData?.joinDate || "").toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="row g-3">
+                    {userData?.zodiacSign && (
+                      <ProfilePillar
+                        label="ZODIAC"
+                        value={userData.zodiacSign}
+                        Icon={getZodiacIcon(userData.zodiacSign)}
+                        grimoire={{ type: "zodiac", key: userData.zodiacSign, title: userData.zodiacSign }}
+                        onGrimoireClick={setSelectedAttribute}
+                      />
+                    )}
+                    {userData?.destinyNumber != null && userData.destinyNumber > 0 && (
+                      <ProfilePillar
+                        label="DESTINY_# "
+                        value={String(userData.destinyNumber)}
+                        Icon={Hash}
+                        grimoire={{ type: "numerology", key: String(userData.destinyNumber), title: `Destiny Number ${userData.destinyNumber}` }}
+                        onGrimoireClick={setSelectedAttribute}
+                      />
+                    )}
+                    {userData?.tarotArchetype && (
+                      <ProfilePillar
+                        label="ARCHETYPE"
+                        value={userData.tarotArchetype}
+                        Icon={Layers}
+                        grimoire={{ type: "tarot", key: userData.tarotArchetype, title: userData.tarotArchetype }}
+                        onGrimoireClick={setSelectedAttribute}
+                      />
+                    )}
+                    {userData?.favoriteColor && (
+                      <ProfilePillar
+                        label="POWER_COLOR"
+                        value={userData.favoriteColor}
+                        Icon={Palette}
+                      />
+                    )}
+                    {userData?.birthPlace && (
+                      <ProfilePillar
+                        label="ORIGIN_SPIRIT"
+                        value={userData.birthPlace}
+                        Icon={MapPin}
+                        span={2}
+                      />
+                    )}
+                  </div>
+                </div>
+                <div className="d-grid gap-3">
+                  <div className="signal-card p-3 d-flex align-items-center justify-content-between">
+                    <div className="d-flex align-items-center gap-3 text-slate-300">
+                      {userData?.pushNotificationsEnabled ? <Bell size={18} className="text-accent" /> : <BellOff size={18} />}
+                      <span className="small font-mono">PUSH_SIGNALS</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleToggleNotifications}
+                      disabled={!!userData?.pushNotificationsEnabled}
+                      className="btn btn-sm btn-outline-primary rounded-pill font-mono"
+                      style={{ fontSize: '10px' }}
+                    >
+                      {userData?.pushNotificationsEnabled ? "ENABLED" : "ENABLE"}
+                    </button>
+                  </div>
+                  <div className="signal-card p-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div>
+                      <div className="small font-mono text-white">PERSONA_MODE</div>
+                      <div className="small text-slate-500 font-mono" style={{ fontSize: '9px' }}>SELECT_OUTPUT_VOICE</div>
+                    </div>
+                    <select
+                      value={userData?.personaMode ?? "tami"}
+                      onChange={(e) => handlePersonaModeChange(e.target.value as UserProfile["personaMode"])}
+                      className="form-select form-select-sm w-auto bg-slate-950 font-mono text-white"
+                      style={{ fontSize: '10px' }}
+                    >
+                      <option value="tami">TAMI</option>
+                      <option value="oracle">ORACLE</option>
+                    </select>
+                  </div>
+                  <div className="signal-card p-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div>
+                      <div className="small font-mono text-white">COSMIC_AUDIO</div>
+                      <div className="small text-slate-500 font-mono" style={{ fontSize: '9px' }}>
+                        ENTANGLEMENT: {Math.round(entanglementSettings.entanglementPercent)}%
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleToggleCosmicAudio}
+                      disabled={cosmicAudioLoading}
+                      className="btn btn-sm btn-outline-primary rounded-pill font-mono"
+                      style={{ fontSize: '10px' }}
+                    >
+                      {cosmicAudioEnabled ? "TERMINATE" : "INITIALIZE"}
+                    </button>
+                  </div>
+                  <button
+                    onClick={downloadData}
+                    className="btn btn-dark w-100 d-flex align-items-center justify-content-between signal-card border-0 hover-bg-slate-800"
+                  >
+                    <div className="d-flex align-items-center gap-3 text-slate-300">
+                      <Download size={18} />
+                      <span className="small font-mono">EXPORT_DATA (JSON)</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={handleDeleteAccount}
+                    className="btn btn-dark w-100 d-flex align-items-center justify-content-between signal-card border-danger border-opacity-20 hover-bg-danger hover-bg-opacity-10"
+                  >
+                    <div className="d-flex align-items-center gap-3 text-danger">
+                      <Trash2 size={18} />
+                      <span className="small font-mono">PURGE_ACCOUNT</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => logOut()}
+                    className="btn btn-link w-100 p-4 text-slate-600 text-decoration-none hover-text-white d-flex justify-content-center align-items-center gap-2 font-mono small"
+                  >
+                    <LogOut size={18} /> SIGN_OUT
                   </button>
                 </div>
-                <p className="mt-2 text-xs text-slate-500">
-                  Audio requires a user gesture to start. If it&apos;s too loud, reduce system volume.
-                </p>
-              </div>
-              <button
-                onClick={downloadData}
-                className="w-full flex items-center justify-between p-3 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-lg transition-colors"
-              >
-                <div className="flex items-center gap-3 text-slate-300">
-                  <Download size={18} />
-                  <span>Download Data (JSON)</span>
+              </>
+            )}
+
+            {activeSubTabs.soulprint === "dev" && (role === "admin" || role === "owner") && (
+              <>
+                <header className="mb-4">
+                  <h2 className="display-6 font-serif text-white mb-2">
+                    System Debug
+                  </h2>
+                  <p className="text-slate-500 small font-mono">
+                    SIGNAL_DISPATCH • SYSTEM_LOGS
+                  </p>
+                </header>
+                <div className="signal-card mb-4">
+                  <div className="d-flex align-items-start justify-content-between gap-3">
+                    <div>
+                      <h3 className="font-serif fs-5 text-slate-200">Dev Toolkit</h3>
+                      <p className="small font-mono text-slate-500 mt-1" style={{ fontSize: '10px' }}>
+                        SESSION_PATHS • QUICK_REFS
+                      </p>
+                    </div>
+                    <div className="small font-mono text-danger">ROOT</div>
+                  </div>
+
+                  <div className="mt-4 row g-3">
+                    <div className="col-12 col-sm-6">
+                      <div className="p-3 rounded border border-slate-800 bg-slate-950 bg-opacity-40">
+                        <div className="small font-mono text-slate-600 mb-2" style={{ fontSize: '9px' }}>SESSION_DATA</div>
+                        <div className="small text-slate-400 font-mono" style={{ fontSize: '10px' }}>
+                          UID: {currentUser?.uid ? `${currentUser.uid.slice(0, 8)}...` : "—"}
+                        </div>
+                        <div className="small text-slate-400 font-mono mt-1" style={{ fontSize: '10px' }}>
+                          ROLE: {role}
+                        </div>
+                        <div className="small text-slate-400 font-mono mt-1" style={{ fontSize: '10px' }}>
+                          VERIFIED: {currentUser?.emailVerified ? "TRUE" : "FALSE"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="col-12 col-sm-6">
+                      <div className="p-3 rounded border border-slate-800 bg-slate-950 bg-opacity-40 h-100">
+                        <div className="small font-mono text-slate-600 mb-2" style={{ fontSize: '9px' }}>FS_PATHS</div>
+                        <div className="small font-mono text-slate-500 break-all" style={{ fontSize: '9px' }}>
+                          /users/{currentUser?.uid ?? "UID"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 d-flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => currentUser?.uid && navigator.clipboard?.writeText(currentUser.uid)}
+                      className="btn btn-sm btn-outline-secondary font-mono"
+                      style={{ fontSize: '9px' }}
+                    >
+                      COPY_UID
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDevPingWrite}
+                      disabled={!currentUser?.uid || devPingLoading}
+                      className="btn btn-sm btn-outline-danger font-mono"
+                      style={{ fontSize: '9px' }}
+                    >
+                      {devPingLoading ? "PINGING..." : "PING_TEST"}
+                    </button>
+                  </div>
                 </div>
-              </button>
-              <button
-                onClick={handleDeleteAccount}
-                className="w-full flex items-center justify-between p-3 bg-slate-900 border border-red-900/30 hover:bg-red-950/30 rounded-lg transition-colors"
-              >
-                <div className="flex items-center gap-3 text-red-400">
-                  <Trash2 size={18} />
-                  <span>Delete Account</span>
-                </div>
-              </button>
-              <button
-                onClick={() => logOut()}
-                className="w-full p-4 text-slate-500 hover:text-white flex justify-center items-center gap-2"
-              >
-                <LogOut size={18} /> Sign Out
-              </button>
-            </div>
+                <SignalDispatch />
+                <GenerativeLogViewer />
+              </>
+            )}
           </div>
         )}
       </main>
@@ -1648,33 +1471,35 @@ function GrimoireModal({
   const description = entry?.description ?? "No entry found in the grimoire for this path.";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-slate-950 border-2 border-amber-900/50 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-hidden shadow-2xl shadow-amber-950/30">
-        <div className="border-b border-amber-800/40 bg-slate-900/90 px-6 py-4 flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-xl font-serif text-amber-100">{selectedAttribute.title}</h3>
-            {subtitle && (
-              <p className="text-sm text-amber-200/80 mt-0.5">{subtitle}</p>
+    <div className="modal d-block bg-black bg-opacity-80 backdrop-blur-sm p-3" tabIndex={-1}>
+      <div className="modal-dialog modal-dialog-centered modal-lg">
+        <div className="modal-content bg-slate-950 border border-accent border-opacity-20 rounded-3xl shadow-2xl overflow-hidden">
+          <div className="modal-header border-bottom border-white border-opacity-10 bg-slate-900 bg-opacity-90 px-4 py-4">
+            <div>
+              <h3 className="modal-title font-serif text-white fs-4">{selectedAttribute.title}</h3>
+              {subtitle && (
+                <p className="small font-mono text-accent opacity-80 mb-0 mt-1" style={{ fontSize: '9px' }}>{subtitle.toUpperCase()}</p>
+              )}
+            </div>
+            <button type="button" className="btn-close btn-close-white shadow-none" onClick={onClose} aria-label="Close"></button>
+          </div>
+          <div className="modal-body p-4 p-md-5 text-slate-300 lh-lg small overflow-auto custom-scrollbar" style={{ maxHeight: '60vh' }}>
+            <div className="font-serif fs-5 mb-4 text-white opacity-90" style={{ fontStyle: 'italic' }}>
+              &ldquo;The sequence unfolds according to the initial conditions.&rdquo;
+            </div>
+            <p className="mb-4">{description}</p>
+            {elementEntry?.description && (
+              <div className="pt-4 border-top border-white border-opacity-10 mt-4">
+                <p className="small font-mono text-accent opacity-80 mb-2" style={{ fontSize: '9px' }}>
+                  [{selectedAttribute.subtitle?.toUpperCase()}_ELEMENT_ANALYSIS]
+                </p>
+                <p className="mb-0">{elementEntry.description}</p>
+              </div>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-slate-700/80 text-slate-400 hover:text-white transition-colors"
-            aria-label="Close"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        <div className="p-6 overflow-y-auto max-h-[60vh] text-slate-300 text-sm leading-relaxed space-y-4">
-          <p>{description}</p>
-          {elementEntry?.description && (
-            <div className="pt-3 border-t border-slate-700">
-              <p className="text-xs font-medium uppercase tracking-wider text-amber-200/80 mb-1">
-                As {selectedAttribute.subtitle}
-              </p>
-              <p>{elementEntry.description}</p>
-            </div>
-          )}
+          <div className="modal-footer border-top border-white border-opacity-10 bg-slate-900 bg-opacity-50 px-4 py-3">
+            <button type="button" className="btn btn-link text-slate-500 font-mono text-decoration-none small" style={{ fontSize: '10px' }} onClick={onClose}>[ DISMISS ]</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1682,7 +1507,6 @@ function GrimoireModal({
 }
 
 function SoulprintCard({
-  theme,
   pillar,
   label,
   value,
@@ -1690,7 +1514,6 @@ function SoulprintCard({
   grimoire,
   onGrimoireClick,
 }: {
-  theme: ReturnType<typeof getThemeColor>;
   pillar: PillarType;
   label: string;
   value: string;
@@ -1700,21 +1523,24 @@ function SoulprintCard({
 }) {
   const Icon = getPillarIcon(pillar);
   return (
-    <button
-      type="button"
-      onClick={() => onGrimoireClick(grimoire)}
-      className={`flex flex-col items-center justify-center p-5 rounded-2xl border ${theme.borderLight} bg-slate-900/80 hover:bg-slate-800/80 transition-colors text-center min-h-[120px]`}
-    >
-      <div className={`flex items-center justify-center w-12 h-12 rounded-xl mb-2 ${theme.bg} ${theme.text} bg-opacity-30 border ${theme.borderLight}`}>
-        {symbol ? (
-          <span className={`text-4xl ${theme.accent}`} aria-hidden>{symbol}</span>
-        ) : (
-          <Icon size={24} className={theme.accent} />
-        )}
-      </div>
-      <div className="text-xs font-medium uppercase tracking-wider text-slate-500 mb-0.5">{label}</div>
-      <div className={`font-serif font-medium ${theme.text} truncate w-full`} title={value}>{value}</div>
-    </button>
+    <div className="col-6 col-sm-4">
+      <button
+        type="button"
+        onClick={() => onGrimoireClick(grimoire)}
+        className="btn btn-link text-decoration-none w-100 h-100 signal-card d-flex flex-column align-items-center justify-content-center text-center p-4"
+        style={{ minHeight: '140px' }}
+      >
+        <div className="d-flex align-items-center justify-content-center rounded bg-theme-opacity-10 border border-accent border-opacity-20 mb-3" style={{ width: '52px', height: '52px' }}>
+          {symbol ? (
+            <span className="fs-3 text-accent" aria-hidden>{symbol}</span>
+          ) : (
+            <Icon size={28} className="text-accent" />
+          )}
+        </div>
+        <div className="small font-mono text-slate-500 mb-1" style={{ fontSize: '9px' }}>{label}</div>
+        <div className="font-serif text-white truncate w-100 small">{value}</div>
+      </button>
+    </div>
   );
 }
 
@@ -1734,38 +1560,39 @@ function ProfilePillar({
   onGrimoireClick?: (g: { type: keyof typeof ESOTERIC_DATA; key: string; title: string; subtitle?: string }) => void;
 }) {
   const content = (
-    <>
-      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-purple-900/40 border border-purple-500/20 flex items-center justify-center text-purple-300">
-        <Icon size={20} />
+    <div className="d-flex align-items-center gap-3">
+      <div className="flex-shrink-0 d-flex align-items-center justify-content-center rounded bg-theme-opacity-10 border border-accent border-opacity-20" style={{ width: '44px', height: '44px' }}>
+        <Icon size={20} className="text-accent" />
       </div>
-      <div className="min-w-0 flex-1 text-left">
-        <div className="text-slate-500 text-xs font-medium uppercase tracking-wider mb-0.5">
+      <div className="min-w-0 flex-fill text-start">
+        <div className="text-slate-500 small font-mono mb-1" style={{ fontSize: '9px' }}>
           {label}
         </div>
-        <div className="text-purple-100 font-medium truncate" title={value}>
+        <div className="text-white font-medium truncate small">
           {value}
         </div>
       </div>
-    </>
+    </div>
   );
 
-  const className = `flex items-start gap-3 p-4 bg-slate-950/80 rounded-xl border border-slate-700/80 hover:border-purple-500/30 transition-colors ${
-    span === 2 ? "col-span-2 sm:col-span-2" : ""
-  }`;
+  const className = `signal-card p-3 h-100`;
+  const colClass = span === 2 ? "col-12" : "col-6 col-sm-4";
 
-  if (grimoire && onGrimoireClick) {
-    return (
-      <button
-        type="button"
-        onClick={() => onGrimoireClick(grimoire)}
-        className={className + " cursor-pointer w-full"}
-      >
-        {content}
-      </button>
-    );
-  }
-
-  return <div className={className}>{content}</div>;
+  return (
+    <div className={colClass}>
+      {grimoire && onGrimoireClick ? (
+        <button
+          type="button"
+          onClick={() => onGrimoireClick(grimoire)}
+          className={`btn btn-link text-decoration-none w-100 p-0 h-100 ${className}`}
+        >
+          {content}
+        </button>
+      ) : (
+        <div className={className}>{content}</div>
+      )}
+    </div>
+  );
 }
 
 const NavButton = ({
@@ -1781,24 +1608,44 @@ const NavButton = ({
 }) => (
   <button
     onClick={onClick}
-    className={`md:w-full md:px-0 md:py-4 md:hover:bg-purple-900/10 flex flex-col items-center gap-1 transition-colors ${
-      active ? "text-purple-400" : "text-slate-500 hover:text-slate-300"
-    }`}
+    className={`btn btn-link text-decoration-none d-flex flex-column align-items-center gap-1 transition-colors w-100 py-3 ${
+      active ? "text-purple-400" : "text-slate-500 hover-text-slate-300"
+    } position-relative`}
   >
     {icon}
-    <span className="text-[10px] font-medium tracking-wide">{label}</span>
+    <span className="small font-medium tracking-wide" style={{ fontSize: '10px' }}>{label}</span>
     {active && (
-      <div className="md:absolute md:left-0 md:h-full md:w-1 md:bg-purple-500 hidden md:block" />
+      <div className="d-none d-md-block position-absolute start-0 h-100" style={{ width: '4px', backgroundColor: 'var(--purple-500)', top: 0 }} />
     )}
   </button>
 );
 
-// --- ROUTING & REDIRECTS ---
+const SubNavButton = ({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) => (
+  <button
+    onClick={onClick}
+    className={`btn btn-sm px-3 py-2 rounded-pill border transition-all whitespace-nowrap ${
+      active
+        ? "bg-purple-600 border-purple-500 text-white shadow-sm"
+        : "bg-slate-900 border-slate-800 text-slate-400 hover-bg-slate-800 hover-text-slate-200"
+    }`}
+    style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.05em' }}
+  >
+    {label.toUpperCase()}
+  </button>
+);
+
 export default function App() {
   const { currentUser, userData, loading } = useAuth();
   const [loadingTimeout, setLoadingTimeout] = useState(false);
 
-  // Set a timeout to prevent infinite loading if Firestore fails
   useEffect(() => {
     if (currentUser && !userData && !loading) {
       const timer = setTimeout(() => setLoadingTimeout(true), 3000);
@@ -1809,7 +1656,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-purple-400">
+      <div className="min-vh-100 bg-slate-950 d-flex align-items-center justify-content-center text-purple-400">
         Loading Soul Data…
       </div>
     );
@@ -1817,11 +1664,9 @@ export default function App() {
 
   const isVerified = currentUser?.emailVerified ?? false;
 
-  // Wait for userData to load (but not forever - timeout after 3s)
-  // Only wait if user is logged in and verified
   if (currentUser && isVerified && !userData && !loadingTimeout) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-purple-400">
+      <div className="min-vh-100 bg-slate-950 d-flex align-items-center justify-content-center text-purple-400">
         Loading Soul Data…
       </div>
     );

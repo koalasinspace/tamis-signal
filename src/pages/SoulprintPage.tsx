@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Palette, Hash } from "lucide-react";
+import { Palette, Hash, Activity } from "lucide-react";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "../context/AuthContext";
@@ -20,6 +20,8 @@ import {
   getMoonPhase,
   getCelticTree,
 } from "../lib/calculators";
+import { getPillarIcon, getAttributeSymbol, type PillarType } from "../SoulprintIcons";
+import { ESOTERIC_DATA } from "../esotericData";
 
 export default function SoulprintPage() {
   const { currentUser, userData, setUserData } = useAuth();
@@ -55,7 +57,6 @@ export default function SoulprintPage() {
   const isEditing = Boolean(userData?.soulprintComplete || (userData?.birthday && userData?.destinyNumber != null));
 
   const derived = useMemo(() => {
-    // Derive as much as we can from current form for live synth + weave preview.
     const birthday = form.birthday;
     const name = form.name;
     const zodiacSign = birthday ? getZodiacSign(birthday) : "";
@@ -93,19 +94,6 @@ export default function SoulprintPage() {
     contextMode,
     enableSequencer: ritualStarted,
     onBeat: (e) => {
-      // "Living Brain" narration: Tami observes the recombination in real time.
-      if (perspective === "architect") {
-        setNarration(
-          `RECOMBINATION • beat ${e.beat} • clock=${e.contextMode.toUpperCase()} • pillars=${e.pillars.join("+")}`
-        );
-      } else {
-        setNarration(
-          `We are seeing a disturbance move through ${e.pillars.join(" and ")}. Beat ${e.beat}.`
-        );
-      }
-
-      // Librarian: pull a snippet keyed to the beat's pillar emphasis.
-      // Shadow mode: bias toward "shadow" language (reversed/weakness/pathology).
       const pick = async () => {
         if (!ritualStarted) return;
         const primary = e.pillars[0];
@@ -119,14 +107,9 @@ export default function SoulprintPage() {
           const keep = lines.filter((l) => {
             const s = l.toLowerCase();
             return (
-              s.includes("shadow") ||
-              s.includes("reversed") ||
-              s.includes("weakness") ||
-              s.includes("pathology") ||
-              s.includes("clash") ||
-              s.includes("enemy") ||
-              s.includes("disson") ||
-              s.includes("static")
+              s.includes("shadow") || s.includes("reversed") || s.includes("weakness") ||
+              s.includes("pathology") || s.includes("clash") || s.includes("enemy") ||
+              s.includes("disson") || s.includes("static")
             );
           });
           return (keep.length ? keep.slice(0, 12).join("\n") : text.slice(0, 600)).trim();
@@ -166,8 +149,6 @@ export default function SoulprintPage() {
           setLibrarianLoading(false);
         }
       };
-
-      // fire-and-forget
       pick().catch(() => {});
     },
   });
@@ -187,36 +168,17 @@ export default function SoulprintPage() {
       enableSequencer: ritualStarted,
     });
   }, [
-    cosmicAudio,
-    derived.destinyNumber,
-    derived.planetaryRuler,
-    derived.zodiacSign,
-    derived.lifePathNumber,
-    form.helixTraits.comtStatus,
-    form.monologueStyle,
-    contextMode,
-    perspective,
-    ritualStarted,
-    step,
-    userData?.destinyNumber,
-    userData?.lifePathNumber,
-    userData?.helixTraits?.comtStatus,
-    userData?.monologueStyle,
-    userData?.planetaryRuler,
-    userData?.zodiacSign,
+    cosmicAudio, derived, perspective, ritualStarted, step, userData
   ]);
 
-  const theme = useMemo(() => {
+  const themeValues = useMemo(() => {
     const isShadow = contextMode === "shadow";
     return {
-      accent: isShadow ? "#f59e0b" : perspective === "architect" ? "#38bdf8" : "#d946ef",
-      border: isShadow ? "border-amber-500/30" : "border-purple-500/30",
-      bg: isShadow ? "from-amber-900/30" : "from-purple-900/40",
-      wave: isShadow ? "rgba(245,158,11,0.95)" : perspective === "architect" ? "rgba(56,189,248,0.9)" : "rgba(217,70,239,0.9)",
+      accent: isShadow ? "#f59e0b" : perspective === "architect" ? "#38bdf8" : "#a855f7",
+      bg: isShadow ? "rgba(69, 26, 3, 0.2)" : "rgba(88, 28, 135, 0.1)",
     };
   }, [contextMode, perspective]);
 
-  // Canvas oscilloscope driven by analyser output.
   useEffect(() => {
     let raf = 0;
     const canvas = canvasRef.current;
@@ -231,29 +193,25 @@ export default function SoulprintPage() {
       const h = canvas.height;
 
       ctx2d.clearRect(0, 0, w, h);
-
-      // Background
       ctx2d.fillStyle = "rgba(2,6,23,0.35)";
       ctx2d.fillRect(0, 0, w, h);
-
-      // Frame
-      ctx2d.strokeStyle = "rgba(168,85,247,0.25)";
+      ctx2d.strokeStyle = "rgba(255,255,255,0.05)";
       ctx2d.lineWidth = 1;
       ctx2d.strokeRect(0.5, 0.5, w - 1, h - 1);
 
       if (!buf || !ritualStarted || !cosmicAudio.isRunning) {
-        ctx2d.fillStyle = "rgba(148,163,184,0.7)";
-        ctx2d.font = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
-        ctx2d.fillText("Signal dormant — begin the ritual to visualize.", 12, h / 2);
+        ctx2d.fillStyle = "rgba(148,163,184,0.4)";
+        ctx2d.font = "10px monospace";
+        ctx2d.fillText("SIGNAL_DORMANT", 12, h / 2);
         return;
       }
 
-      ctx2d.strokeStyle = theme.wave;
+      ctx2d.strokeStyle = themeValues.accent;
       ctx2d.lineWidth = 2;
       ctx2d.beginPath();
       const slice = w / buf.length;
       for (let i = 0; i < buf.length; i++) {
-        const v = buf[i] / 128.0; // 0..2
+        const v = buf[i] / 128.0;
         const y = (v * h) / 2;
         const x = i * slice;
         if (i === 0) ctx2d.moveTo(x, y);
@@ -264,144 +222,7 @@ export default function SoulprintPage() {
 
     draw();
     return () => cancelAnimationFrame(raf);
-  }, [cosmicAudio, perspective, ritualStarted, theme.wave]);
-
-  const [weaveReport, setWeaveReport] = useState<string>("");
-  const [weaveLoading, setWeaveLoading] = useState(false);
-  const weaveRunRef = useRef(0);
-
-  // Prefer showing the cached weave immediately (from onboarding) while the live weave recomputes.
-  useEffect(() => {
-    if (!weaveReport && userData?.weaveReportLatest) {
-      setWeaveReport(userData.weaveReportLatest);
-    }
-  }, [userData?.weaveReportLatest, weaveReport]);
-
-  useEffect(() => {
-    if (!userData) return;
-    const run = ++weaveRunRef.current;
-    const canWeave =
-      !!form.name &&
-      !!form.birthday &&
-      !!form.birthTime &&
-      !!form.birthLocation &&
-      !!form.favoriteNumber;
-    if (!canWeave) {
-      setWeaveReport("");
-      return;
-    }
-
-    const profileForWeave: UserProfile = {
-      ...(userData as UserProfile),
-      name: form.name,
-      birthday: form.birthday,
-      birthTime: form.birthTime,
-      birthLocation: form.birthLocation,
-      birthPlace: form.birthLocation,
-      geomancyFigure: form.geomancyFigure ? form.geomancyFigure : undefined,
-      favoriteColor: form.favoriteColor,
-      favoriteNumber: form.favoriteNumber,
-      zodiacSign: derived.zodiacSign,
-      destinyNumber: derived.destinyNumber,
-      tarotArchetype: derived.tarotArchetype,
-      planetaryRuler: derived.planetaryRuler,
-      chineseZodiac: derived.chineseZodiac,
-      chineseElement: derived.chineseElement,
-      lifePathNumber: derived.lifePathNumber,
-      moonPhase: derived.moonPhase,
-      celticTree: derived.celticTree,
-      monologueStyle: form.monologueStyle,
-      helixTraits: form.helixTraits,
-      soulprintComplete: true,
-      // keep required fields if userData is null-ish (shouldn't happen on this page)
-      email: (userData as any)?.email ?? "",
-      role: (userData as any)?.role ?? "user",
-      subscriptionTier: (userData as any)?.subscriptionTier ?? "Free",
-      joinDate: (userData as any)?.joinDate ?? new Date().toISOString(),
-    };
-
-    setWeaveLoading(true);
-    generateWeaveReport(profileForWeave)
-      .then((txt) => {
-        if (weaveRunRef.current !== run) return;
-        setWeaveReport(txt);
-      })
-      .catch(() => {
-        if (weaveRunRef.current !== run) return;
-        setWeaveReport("");
-      })
-      .finally(() => {
-        if (weaveRunRef.current !== run) return;
-        setWeaveLoading(false);
-      });
-  }, [
-    derived,
-    form.birthday,
-    form.birthLocation,
-    form.birthTime,
-    form.favoriteColor,
-    form.favoriteNumber,
-    form.geomancyFigure,
-    form.helixTraits,
-    form.monologueStyle,
-    form.name,
-    userData,
-  ]);
-
-  const ritualLine = useMemo(() => {
-    const d = cosmicAudio.getDiagnostics();
-    const base =
-      perspective === "architect"
-        ? "We are not here to reassure. We are here to measure."
-        : "We are not here to fix you. We are here to witness the interference.";
-    if (!ritualStarted) return base;
-    if (step === 1) {
-      return perspective === "architect"
-        ? "BEDROCK: establish the clock, the coordinates, the carrier."
-        : "BEDROCK: we find your anchor point and let it ring.";
-    }
-    if (step === 2) {
-      return perspective === "architect"
-        ? "ASTRAL: modulation begins. waveform and harmonic structure come online."
-        : "ASTRAL: the veil thins. the shape of your signal reveals itself.";
-    }
-    return perspective === "architect"
-      ? `INTERFACE: high-entropy layer. output protocol stabilizes. ${d ? `f₀=${d.f0Hz.toFixed(2)}Hz` : ""}`
-      : "INTERFACE: the channel opens. we listen without force.";
-  }, [cosmicAudio, perspective, ritualStarted, step]);
-
-  useEffect(() => {
-    if (!userData) return;
-    setForm((f) => ({
-      ...f,
-      name: userData.name || f.name,
-      birthday: userData.birthday || f.birthday,
-      birthTime: userData.birthTime || f.birthTime,
-      birthLocation: userData.birthLocation || userData.birthPlace || f.birthLocation,
-      geomancyFigure: (userData as any).geomancyFigure || f.geomancyFigure,
-      favoriteColor: userData.favoriteColor || f.favoriteColor,
-      favoriteNumber: userData.favoriteNumber || f.favoriteNumber,
-      monologueStyle: userData.monologueStyle || f.monologueStyle,
-      helixTraits: {
-        comtStatus: userData.helixTraits?.comtStatus || f.helixTraits.comtStatus,
-        drd4Status: userData.helixTraits?.drd4Status || f.helixTraits.drd4Status,
-        oxtrStatus: userData.helixTraits?.oxtrStatus || f.helixTraits.oxtrStatus,
-        bdnfStatus: userData.helixTraits?.bdnfStatus || f.helixTraits.bdnfStatus,
-        faahStatus: userData.helixTraits?.faahStatus || f.helixTraits.faahStatus,
-      },
-    }));
-  }, [
-    userData?.name,
-    userData?.birthday,
-    userData?.birthTime,
-    (userData as any)?.birthLocation,
-    userData?.birthPlace,
-    (userData as any)?.geomancyFigure,
-    userData?.favoriteColor,
-    userData?.favoriteNumber,
-    userData?.monologueStyle,
-    userData?.helixTraits,
-  ]);
+  }, [cosmicAudio, ritualStarted, themeValues]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -424,7 +245,7 @@ export default function SoulprintPage() {
         birthday: form.birthday,
         birthTime: form.birthTime,
         birthLocation: form.birthLocation,
-        birthPlace: form.birthLocation, // keep legacy in sync
+        birthPlace: form.birthLocation,
         geomancyFigure: form.geomancyFigure ? form.geomancyFigure : undefined,
         favoriteColor: form.favoriteColor,
         favoriteNumber: form.favoriteNumber,
@@ -461,525 +282,94 @@ export default function SoulprintPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-purple-50 font-sans flex items-center justify-center p-4 relative overflow-hidden">
-      <div className={`absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${theme.bg} via-slate-950 to-slate-950`} />
-      <div className={`bg-slate-900/80 backdrop-blur-md border ${theme.border} p-8 rounded-3xl w-full max-w-2xl shadow-2xl relative z-10`}>
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-serif text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-indigo-300">
-            Tuning Your Soulprint
+    <div className="min-vh-100 bg-slate-950 text-slate-200 font-sans d-flex align-items-center justify-content-center p-3 position-relative overflow-hidden">
+      <div className="bg-slate-900 bg-opacity-80 backdrop-blur-md border border-opacity-20 p-4 p-md-5 rounded-3xl w-100 max-w-3xl shadow-lg position-relative z-10 scanline-container">
+        
+        <header className="text-center mb-5">
+          <h1 className="display-6 font-serif text-white mb-1">
+            System Tuning
           </h1>
-          <p className="text-slate-400 text-xs uppercase tracking-widest mt-2">
-            {isEditing ? "Re-tune your signal" : "Step into the channel — we’ll calibrate your frequency"}
-          </p>
-        </div>
+          <p className="text-slate-500 small font-mono">CALIBRATING_FREQUENCY • STEP_{step}_OF_3</p>
+        </header>
 
-        <div className="mb-5">
-          <canvas
-            ref={canvasRef}
-            width={720}
-            height={140}
-            className={`w-full h-[140px] rounded-2xl border ${contextMode === "shadow" ? "border-amber-500/25" : "border-purple-500/20"} bg-slate-950`}
-          />
-          <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
-            <div className="text-xs text-slate-400">
-              <div className="font-mono text-slate-300">
-                {perspective === "architect" ? "ARCHITECT MODE • 165Hz Template" : "MYSTIC MODE • Soul Tone"}
-              </div>
-              <div>
-                {(() => {
-                  const d = cosmicAudio.getDiagnostics();
-                  if (!d) return "Synth dormant.";
-                  return `f₀=${d.f0Hz.toFixed(2)}Hz • waveform=${d.waveform} • shimmer=${d.shimmerHz ? d.shimmerHz + "Hz" : "—"} • ADSR(A=${d.envelope.attackSeconds}s)`;
-                })()}
-              </div>
+        <div className="signal-card mb-4 p-0 bg-black bg-opacity-40 border-opacity-10 overflow-hidden">
+          <canvas ref={canvasRef} width={720} height={120} className="w-100 h-120" />
+          <div className="p-3 d-flex justify-content-between align-items-center bg-slate-950 bg-opacity-50">
+            <div className="small font-mono text-slate-500" style={{ fontSize: '9px' }}>
+              {perspective === "architect" ? "ARCHITECT_FILTER" : "MYSTIC_RESONANCE"}
             </div>
-            <div className="flex items-center gap-2">
-              <div className="hidden sm:flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setContextMode("selection")}
-                  className={`px-2.5 py-2 rounded-lg text-[10px] font-bold border ${
-                    contextMode === "selection" ? "border-indigo-400 bg-indigo-500/10 text-indigo-200" : "border-slate-800 bg-slate-950 text-slate-300"
-                  }`}
-                >
-                  SELECTION
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setContextMode("extrapolation")}
-                  className={`px-2.5 py-2 rounded-lg text-[10px] font-bold border ${
-                    contextMode === "extrapolation" ? "border-indigo-400 bg-indigo-500/10 text-indigo-200" : "border-slate-800 bg-slate-950 text-slate-300"
-                  }`}
-                >
-                  EXTRAPOLATION
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setContextMode("subtraction")}
-                  className={`px-2.5 py-2 rounded-lg text-[10px] font-bold border ${
-                    contextMode === "subtraction" ? "border-emerald-400 bg-emerald-500/10 text-emerald-200" : "border-slate-800 bg-slate-950 text-slate-300"
-                  }`}
-                >
-                  SUBTRACTION
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setContextMode("shadow")}
-                  className={`px-2.5 py-2 rounded-lg text-[10px] font-bold border ${
-                    contextMode === "shadow" ? "border-amber-400 bg-amber-500/10 text-amber-200" : "border-slate-800 bg-slate-950 text-slate-300"
-                  }`}
-                >
-                  SHADOW
-                </button>
-              </div>
-              <div className="inline-flex rounded-lg border border-slate-800 overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setPerspective("mystic")}
-                  className={`px-3 py-2 text-xs font-semibold ${
-                    perspective === "mystic" ? "bg-purple-600 text-white" : "bg-slate-950 text-slate-300"
-                  }`}
-                >
-                  MYSTIC
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPerspective("architect")}
-                  className={`px-3 py-2 text-xs font-semibold ${
-                    perspective === "architect" ? "bg-cyan-600 text-white" : "bg-slate-950 text-slate-300"
-                  }`}
-                >
-                  ARCHITECT
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={ritualStarted ? cosmicAudio.stop : startRitual}
-                disabled={ritualLoading}
-                className="px-3 py-2 rounded-lg text-xs font-semibold bg-slate-950 border border-slate-800 text-slate-200 hover:bg-slate-900 disabled:opacity-50"
-              >
-                {ritualStarted ? "Silence" : ritualLoading ? "Opening…" : "Begin Ritual"}
-              </button>
+            <div className="d-flex gap-2">
+              <button onClick={() => setPerspective("mystic")} className={`btn btn-sm font-mono ${perspective === "mystic" ? "text-accent" : "text-slate-600"}`} style={{ fontSize: '9px' }}>MYSTIC</button>
+              <button onClick={() => setPerspective("architect")} className={`btn btn-sm font-mono ${perspective === "architect" ? "text-accent" : "text-slate-600"}`} style={{ fontSize: '9px' }}>ARCHITECT</button>
             </div>
           </div>
-          <p className="mt-2 text-xs text-slate-500">
-            {perspective === "architect"
-              ? "We observe the system without judgment: frequency, harmonics, envelope. No coaching. Just signal."
-              : "We listen first. We don’t fix you. We reveal where the noise is bending the light."}
-          </p>
         </div>
 
-        {perspective === "architect" && (
-          <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                Physics Data Matrix
-              </h3>
-              <div className="text-[10px] font-mono text-slate-400">
-                MODE={contextMode.toUpperCase()}
+        <div className="row g-3 mb-5">
+          <div className="col-12">
+            <div className="signal-card">
+              <div className="d-flex align-items-center justify-content-between mb-3">
+                <div className="small font-mono text-slate-500" style={{ fontSize: '9px' }}>INPUT_ANCHORS</div>
+                <div className="small font-mono text-accent" style={{ fontSize: '9px' }}>PHASE_{step}</div>
               </div>
-            </div>
-            {(() => {
-              const metrics = generateWeaveMetrics(
-                {
-                  ...(userData as any),
-                  zodiacSign: derived.zodiacSign || userData?.zodiacSign || "",
-                  planetaryRuler: derived.planetaryRuler || userData?.planetaryRuler || "",
-                  destinyNumber: derived.destinyNumber || userData?.destinyNumber || 0,
-                  lifePathNumber: derived.lifePathNumber || userData?.lifePathNumber || 0,
-                } as UserProfile,
-                contextMode
-              );
-              const rows: Array<[string, string]> = [
-                ["Hz (f₀)", `${metrics.f0Hz.toFixed(2)} Hz`],
-                ["Shimmer", metrics.shimmerHz ? `${metrics.shimmerHz.toFixed(0)} Hz` : "—"],
-                ["Western Element", metrics.westernElement],
-                ["BPM", `${metrics.bpm.toFixed(0)} BPM`],
-                ["Seconds/Beat", `${metrics.secondsPerBeat.toFixed(3)} s`],
-                ["Redshift (z)", `${metrics.redshiftZ.toFixed(2)}`],
-              ];
-              return (
-                <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {rows.map(([k, v]) => (
-                    <div
-                      key={k}
-                      className="p-3 bg-slate-900/40 border border-slate-800 rounded-xl"
-                    >
-                      <div className="text-[9px] font-bold text-slate-500 uppercase mb-1">
-                        {k}
-                      </div>
-                      <div className="text-xs font-mono text-slate-200 truncate" title={v}>
-                        {v}
-                      </div>
+
+              <form onSubmit={handleSubmit} className="d-grid gap-3">
+                {step === 1 && (
+                  <>
+                    <input required type="text" placeholder="FULL_NAME" className="form-control form-control-sm font-mono" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                    <div className="row g-2">
+                      <div className="col-6"><input required type="date" className="form-control form-control-sm font-mono" value={form.birthday} onChange={(e) => setForm({ ...form, birthday: e.target.value })} /></div>
+                      <div className="col-6"><input required type="time" className="form-control form-control-sm font-mono" value={form.birthTime} onChange={(e) => setForm({ ...form, birthTime: e.target.value })} /></div>
                     </div>
-                  ))}
-                </div>
-              );
-            })()}
-          </div>
-        )}
+                    <input required type="text" placeholder="BIRTH_LOCATION" className="form-control form-control-sm font-mono" value={form.birthLocation} onChange={(e) => setForm({ ...form, birthLocation: e.target.value })} />
+                    <div className="row g-2">
+                      <div className="col-6"><input required type="text" placeholder="POWER_COLOR" className="form-control form-control-sm font-mono" value={form.favoriteColor} onChange={(e) => setForm({ ...form, favoriteColor: e.target.value })} /></div>
+                      <div className="col-6"><input required type="number" placeholder="POWER_NUMBER" className="form-control form-control-sm font-mono" value={form.favoriteNumber} onChange={(e) => setForm({ ...form, favoriteNumber: e.target.value })} /></div>
+                    </div>
+                  </>
+                )}
 
-        <div className="mb-4 flex items-center justify-between text-xs text-slate-400">
-          <div>
-            Phase <span className="text-slate-200 font-semibold">{step}</span> / 3
-          </div>
-          <div className="font-mono">
-            {step === 1 ? "BEDROCK" : step === 2 ? "ASTRAL" : "INTERFACE"}
+                {step === 2 && (
+                  <select value={form.monologueStyle} onChange={(e) => setForm({ ...form, monologueStyle: e.target.value as any })} className="form-select form-select-sm font-mono">
+                    <option value="Verbal">VERBAL_MONOLOGUE</option>
+                    <option value="Visual">VISUAL_MONOLOGUE</option>
+                    <option value="Musical">MUSICAL_MONOLOGUE</option>
+                    <option value="Anendophasic">ANENDOPHASIC</option>
+                  </select>
+                )}
+
+                {step === 3 && (
+                  <div className="d-grid gap-2">
+                    <select value={form.helixTraits.comtStatus} onChange={(e) => setForm({ ...form, helixTraits: { ...form.helixTraits, comtStatus: e.target.value as any } })} className="form-select form-select-sm font-mono">
+                      <option value="Unknown">COMT_UNKNOWN</option>
+                      <option value="Warrior (Met/Met)">WARRIOR_MET</option>
+                      <option value="Worrier (Val/Val)">WORRIER_VAL</option>
+                    </select>
+                    <select value={form.helixTraits.drd4Status} onChange={(e) => setForm({ ...form, helixTraits: { ...form.helixTraits, drd4Status: e.target.value as any } })} className="form-select form-select-sm font-mono">
+                      <option value="Unknown">DRD4_UNKNOWN</option>
+                      <option value="Seeker (7R+)">SEEKER_7R</option>
+                      <option value="Settler (No 7R)">SETTLER_NO_7R</option>
+                    </select>
+                  </div>
+                )}
+
+                <div className="d-flex gap-2 mt-2">
+                  {step > 1 && <button type="button" onClick={() => setStep(s => (s-1) as any)} className="btn btn-outline-secondary flex-fill font-mono small py-2">BACK</button>}
+                  {step < 3 ? (
+                    <button type="button" onClick={() => setStep(s => (s+1) as any)} className="btn btn-primary bg-theme-accent border-0 flex-fill font-mono small py-2">NEXT</button>
+                  ) : (
+                    <button type="submit" disabled={loading} className="btn btn-primary bg-theme-accent border-0 flex-fill font-mono small py-2">{loading ? "SAVING..." : "SEAL_TUNING"}</button>
+                  )}
+                </div>
+              </form>
+            </div>
           </div>
         </div>
 
-        <div className="mb-5 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-xs uppercase tracking-widest text-slate-500">
-                {perspective === "architect" ? "Architect Perspective" : "Mystic Perspective"}
-              </div>
-              <div className="mt-1 text-slate-200 text-sm leading-relaxed">
-                {ritualLine}
-              </div>
-            </div>
-            {!ritualStarted && (
-              <div className="text-xs text-slate-500 max-w-[12rem]">
-                Audio won’t start until you press <span className="text-slate-300">Begin Ritual</span>.
-              </div>
-            )}
-          </div>
-          {ritualStarted && (
-            <div className={`mt-4 rounded-xl border ${contextMode === "shadow" ? "border-amber-500/20" : "border-slate-800"} bg-slate-900/30 p-3`}>
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="text-[10px] uppercase tracking-widest text-slate-500">
-                  Tami (Recombination Narration)
-                </div>
-                <div className="text-[10px] font-mono text-slate-500">
-                  {librarianLoading ? "Librarian: pulling…" : librarianSnippet ? "Librarian: locked" : "Librarian: idle"}
-                </div>
-              </div>
-              <div className="mt-2 text-sm text-slate-200 leading-relaxed">
-                {narration || "The channel is open. We are listening."}
-              </div>
-              {librarianSnippet && (
-                <pre className="mt-3 text-xs whitespace-pre-wrap font-mono text-slate-200/90 max-h-40 overflow-auto bg-slate-950/40 border border-slate-800 rounded-lg p-3">
-                  {librarianSnippet}
-                </pre>
-              )}
-            </div>
-          )}
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <input
-            required
-            type="text"
-            placeholder="Full Name"
-            className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 text-sm focus:outline-none focus:border-purple-500 text-white"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
-
-          {step === 1 && (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="relative">
-                  <span className="absolute -top-2 left-2 text-[10px] bg-slate-950 px-1 text-slate-500">
-                    Birth Date
-                  </span>
-                  <input
-                    required
-                    type="date"
-                    className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 text-sm text-slate-300 focus:outline-none focus:border-purple-500"
-                    value={form.birthday}
-                    onChange={(e) => setForm({ ...form, birthday: e.target.value })}
-                  />
-                </div>
-                <div className="relative">
-                  <span className="absolute -top-2 left-2 text-[10px] bg-slate-950 px-1 text-slate-500">
-                    Birth Time (required)
-                  </span>
-                  <input
-                    required
-                    type="time"
-                    className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 text-sm text-slate-300 focus:outline-none focus:border-purple-500"
-                    value={form.birthTime}
-                    onChange={(e) => setForm({ ...form, birthTime: e.target.value })}
-                  />
-                </div>
-              </div>
-              <input
-                required
-                type="text"
-                placeholder="Birth Location (City / Country)"
-                className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 text-sm focus:outline-none focus:border-purple-500 text-white"
-                value={form.birthLocation}
-                onChange={(e) => setForm({ ...form, birthLocation: e.target.value })}
-              />
-              <div className="relative">
-                <span className="absolute -top-2 left-2 text-[10px] bg-slate-950 px-1 text-slate-500">
-                  Geomancy Figure (Optional)
-                </span>
-                <select
-                  value={form.geomancyFigure}
-                  onChange={(e) => setForm({ ...form, geomancyFigure: e.target.value })}
-                  className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 text-sm text-slate-200 focus:outline-none focus:border-purple-500"
-                >
-                  <option value="">—</option>
-                  <option value="Via">Via</option>
-                  <option value="Populus">Populus</option>
-                  <option value="Fortuna Major">Fortuna Major</option>
-                  <option value="Fortuna Minor">Fortuna Minor</option>
-                  <option value="Conjunctio">Conjunctio</option>
-                  <option value="Albus">Albus</option>
-                  <option value="Puer">Puer</option>
-                  <option value="Puella">Puella</option>
-                  <option value="Amissio">Amissio</option>
-                  <option value="Acquisitio">Acquisitio</option>
-                  <option value="Carcer">Carcer</option>
-                  <option value="Laetitia">Laetitia</option>
-                  <option value="Tristitia">Tristitia</option>
-                  <option value="Cauda Draconis">Cauda Draconis</option>
-                  <option value="Caput Draconis">Caput Draconis</option>
-                  <option value="Rubeus">Rubeus</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="relative">
-                  <Palette size={14} className="absolute left-3 top-3.5 text-slate-500" />
-                  <input
-                    required
-                    type="text"
-                    placeholder="Power color"
-                    className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 pl-9 text-sm focus:outline-none focus:border-purple-500 text-white"
-                    value={form.favoriteColor}
-                    onChange={(e) => setForm({ ...form, favoriteColor: e.target.value })}
-                  />
-                </div>
-                <div className="relative">
-                  <Hash size={14} className="absolute left-3 top-3.5 text-slate-500" />
-                  <input
-                    required
-                    type="number"
-                    placeholder="Power number"
-                    className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 pl-9 text-sm focus:outline-none focus:border-purple-500 text-white"
-                    value={form.favoriteNumber}
-                    onChange={(e) => setForm({ ...form, favoriteNumber: e.target.value })}
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-slate-500">
-                We anchor the channel first: time, place, and the two numbers your signal keeps repeating.
-              </p>
-            </>
-          )}
-
-          {step === 2 && (
-            <>
-              <div className="relative">
-                <span className="absolute -top-2 left-2 text-[10px] bg-slate-950 px-1 text-slate-500">
-                  Inner Monologue Style
-                </span>
-                <select
-                  value={form.monologueStyle}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      monologueStyle: e.target.value as NonNullable<UserProfile["monologueStyle"]>,
-                    })
-                  }
-                  className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 text-sm text-slate-200 focus:outline-none focus:border-purple-500"
-                >
-                  <option value="Verbal">Verbal</option>
-                  <option value="Visual">Visual</option>
-                  <option value="Anendophasic">Anendophasic</option>
-                  <option value="Musical">Musical</option>
-                  <option value="Anauralic">Anauralic</option>
-                </select>
-              </div>
-              <p className="text-xs text-slate-500">
-                This tells us how your mind transmits information when nobody is listening.
-              </p>
-            </>
-          )}
-
-          {step === 3 && (
-            <>
-              <div className="grid grid-cols-1 gap-3">
-                <div className="relative">
-                  <span className="absolute -top-2 left-2 text-[10px] bg-slate-950 px-1 text-slate-500">
-                    COMT (Warrior/Worrier)
-                  </span>
-                  <select
-                    value={form.helixTraits.comtStatus}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        helixTraits: { ...form.helixTraits, comtStatus: e.target.value as any },
-                      })
-                    }
-                    className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 text-sm text-slate-200 focus:outline-none focus:border-purple-500"
-                  >
-                    <option value="Unknown">Unknown</option>
-                    <option value="Warrior (Met/Met)">Warrior (Met/Met)</option>
-                    <option value="Worrier (Val/Val)">Worrier (Val/Val)</option>
-                    <option value="Balanced">Balanced</option>
-                  </select>
-                </div>
-
-                <div className="relative">
-                  <span className="absolute -top-2 left-2 text-[10px] bg-slate-950 px-1 text-slate-500">
-                    DRD4 (Seeker/Settler)
-                  </span>
-                  <select
-                    value={form.helixTraits.drd4Status}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        helixTraits: { ...form.helixTraits, drd4Status: e.target.value as any },
-                      })
-                    }
-                    className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 text-sm text-slate-200 focus:outline-none focus:border-purple-500"
-                  >
-                    <option value="Unknown">Unknown</option>
-                    <option value="Seeker (7R+)">Seeker (7R+)</option>
-                    <option value="Settler (No 7R)">Settler (No 7R)</option>
-                  </select>
-                </div>
-
-                <div className="relative">
-                  <span className="absolute -top-2 left-2 text-[10px] bg-slate-950 px-1 text-slate-500">
-                    OXTR (Empath/Lone Wolf)
-                  </span>
-                  <select
-                    value={form.helixTraits.oxtrStatus}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        helixTraits: { ...form.helixTraits, oxtrStatus: e.target.value as any },
-                      })
-                    }
-                    className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 text-sm text-slate-200 focus:outline-none focus:border-purple-500"
-                  >
-                    <option value="Unknown">Unknown</option>
-                    <option value="Empath (GG)">Empath (GG)</option>
-                    <option value="Lone Wolf (AA)">Lone Wolf (AA)</option>
-                  </select>
-                </div>
-
-                <div className="relative">
-                  <span className="absolute -top-2 left-2 text-[10px] bg-slate-950 px-1 text-slate-500">
-                    BDNF (Plastic/Rigid)
-                  </span>
-                  <select
-                    value={form.helixTraits.bdnfStatus}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        helixTraits: { ...form.helixTraits, bdnfStatus: e.target.value as any },
-                      })
-                    }
-                    className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 text-sm text-slate-200 focus:outline-none focus:border-purple-500"
-                  >
-                    <option value="Unknown">Unknown</option>
-                    <option value="Plastic (Val/Val)">Plastic (Val/Val)</option>
-                    <option value="Rigid (Met Carrier)">Rigid (Met Carrier)</option>
-                  </select>
-                </div>
-
-                <div className="relative">
-                  <span className="absolute -top-2 left-2 text-[10px] bg-slate-950 px-1 text-slate-500">
-                    FAAH (Stoic/Sensitive)
-                  </span>
-                  <select
-                    value={form.helixTraits.faahStatus}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        helixTraits: { ...form.helixTraits, faahStatus: e.target.value as any },
-                      })
-                    }
-                    className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 text-sm text-slate-200 focus:outline-none focus:border-purple-500"
-                  >
-                    <option value="Unknown">Unknown</option>
-                    <option value="Stoic (A Carrier)">Stoic (A Carrier)</option>
-                    <option value="Sensitive (CC)">Sensitive (CC)</option>
-                  </select>
-                </div>
-              </div>
-              <p className="text-xs text-slate-500">
-                Optional for now. This is manual helix entry — the biological layer that colors the signal.
-              </p>
-            </>
-          )}
-
-          <div className="flex gap-2 pt-2">
-            {step > 1 ? (
-              <button
-                type="button"
-                onClick={() => setStep((s) => (s === 2 ? 1 : 2))}
-                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium py-3 rounded transition-all"
-                disabled={loading}
-              >
-                Back
-              </button>
-            ) : (
-              <div className="flex-1" />
-            )}
-
-            {step < 3 ? (
-              <button
-                type="button"
-                onClick={() => setStep((s) => (s === 1 ? 2 : 3))}
-                className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium py-3 rounded shadow-lg transition-all disabled:opacity-50"
-                disabled={
-                  loading ||
-                  !form.name ||
-                  !form.birthday ||
-                  !form.birthTime ||
-                  !form.birthLocation ||
-                  !form.favoriteColor ||
-                  !form.favoriteNumber
-                }
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                disabled={loading}
-                type="submit"
-                className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium py-3 rounded shadow-lg transition-all disabled:opacity-50"
-              >
-                {loading ? "Saving…" : isEditing ? "Update my Soulprint" : "Seal the Tuning"}
-              </button>
-            )}
-          </div>
-
-        </form>
-
-        <div className="mt-6 rounded-3xl border border-purple-500/20 bg-slate-950/60 p-5">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h2 className="text-white font-serif text-lg">Current Signal Status</h2>
-            <div className="text-xs text-slate-400 font-mono">
-              {weaveLoading
-                ? userData?.weaveReportLatest
-                  ? "Weaving… (showing cached)"
-                  : "Weaving…"
-                : weaveReport
-                  ? "Locked"
-                  : "Waiting"}
-            </div>
-          </div>
-          <p className="mt-1 text-xs text-slate-500">
-            Medium&apos;s Insight — a live read of resonance and dissonance. Observational. No coaching.
-          </p>
-          <div className="mt-4">
-            {weaveReport ? (
-              <pre className="text-xs leading-relaxed text-slate-200 whitespace-pre-wrap font-mono bg-slate-900/50 border border-slate-800 rounded-2xl p-4 max-h-72 overflow-auto">
-                {weaveReport}
-              </pre>
-            ) : (
-              <div className="text-sm text-slate-400 bg-slate-900/40 border border-slate-800 rounded-2xl p-4">
-                Enter your anchors (name, date, time, location, number) to generate a live weave report.
-              </div>
-            )}
-          </div>
+        <div className="text-center mt-4">
+          <button onClick={ritualStarted ? cosmicAudio.stop : startRitual} disabled={ritualLoading} className="btn btn-link text-slate-500 font-mono text-decoration-none small">
+            {ritualStarted ? "[ TERMINATE_RITUAL ]" : "[ INITIALIZE_RITUAL ]"}
+          </button>
         </div>
       </div>
     </div>

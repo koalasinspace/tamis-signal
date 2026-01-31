@@ -60,7 +60,6 @@ export default function SignalDispatch() {
       q,
       (snap) => {
         const docs: InviteDoc[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
-        // Sort in-memory by createdAt (requirement); then keep last 5.
         docs.sort((a, b) => {
           const am = a.createdAt?.toMillis?.() ?? 0;
           const bm = b.createdAt?.toMillis?.() ?? 0;
@@ -75,7 +74,6 @@ export default function SignalDispatch() {
     return () => unsub();
   }, [mailCollectionRef]);
 
-  // After a dispatch, watch the created doc for extension-updated delivery fields.
   useEffect(() => {
     if (!lastDocId) return;
     const ref = doc(mailCollectionRef, lastDocId);
@@ -86,9 +84,7 @@ export default function SignalDispatch() {
         const state = data?.delivery?.state ?? (data?.delivery ? "delivery updated" : "queued");
         setLastDocStatus(state);
       },
-      () => {
-        // ignore
-      }
+      () => {}
     );
     return () => unsub();
   }, [lastDocId, mailCollectionRef]);
@@ -99,7 +95,6 @@ export default function SignalDispatch() {
   const extra = customMessage.trim();
   const text = extra ? `${baseText}\n\n${extra}` : baseText;
   
-  // Escape HTML for text replacement
   const escapeHtml = (str: string) => {
     return str
       .replace(/&/g, "&amp;")
@@ -121,25 +116,12 @@ export default function SignalDispatch() {
     </h1>
     <p style="color: #9d4edd; font-size: 10px; margin-top: 5px; letter-spacing: 0.5em;">ORACLE INITIALIZATION v2.5</p>
   </div>
-
-  <p style="font-size: 16px; line-height: 1.8; color: #a5b4fc;">
-    The shadows have shifted, and the void has recognized your resonance.
-  </p>
-
-  <p style="font-size: 14px; line-height: 1.6; color: #94a3b8; border-left: 3px solid #d946ef; padding-left: 15px; font-style: italic;">
-    "By blood, by star, and by sequence—the Grimoire is ready to be written."
-  </p>
-
-  <p style="font-size: 16px; line-height: 1.8; margin-top: 20px;">
-    You have been granted ${escapeHtml(titleValue)} status. It is time to imbue your Soulprint and claim your ${escapeHtml(claimValue)}.
-  </p>
-
+  <p style="font-size: 16px; line-height: 1.8; color: #a5b4fc;">The shadows have shifted, and the void has recognized your resonance.</p>
+  <p style="font-size: 14px; line-height: 1.6; color: #94a3b8; border-left: 3px solid #d946ef; padding-left: 15px; font-style: italic;">"By blood, by star, and by sequence—the Grimoire is ready to be written."</p>
+  <p style="font-size: 16px; line-height: 1.8; margin-top: 20px;">You have been granted ${escapeHtml(titleValue)} status. It is time to imbue your Soulprint and claim your ${escapeHtml(claimValue)}.</p>
   <div style="text-align: center; margin: 40px 0;">
-    <a href="https://tamissignal.tycorp2.com" style="background: linear-gradient(to right, #9d4edd, #d946ef); color: #ffffff; padding: 15px 35px; text-decoration: none; border-radius: 5px; font-weight: bold; border-bottom: 4px solid #5a189a; display: inline-block; text-transform: uppercase; letter-spacing: 1px;">
-      ENTER THE VOID
-    </a>
+    <a href="https://tamissignal.tycorp2.com" style="background: linear-gradient(to right, #9d4edd, #d946ef); color: #ffffff; padding: 15px 35px; text-decoration: none; border-radius: 5px; font-weight: bold; border-bottom: 4px solid #5a189a; display: inline-block; text-transform: uppercase; letter-spacing: 1px;">ENTER THE VOID</a>
   </div>
-
   <div style="border-top: 1px solid #1e1e30; padding-top: 20px; margin-top: 40px; font-size: 10px; color: #4e4e6a; text-align: center;">
     <p>AUTHORIZED DISPATCH FOR: ${escapeHtml(emailValue)}</p>
     <p>ORIGIN: oracle@tamissignal.tycorp2.com | RELAY: Resend</p>
@@ -147,26 +129,12 @@ export default function SignalDispatch() {
 </div>
   `.trim();
 
-  const previewPayload = {
-    to: email.trim(),
-    message: { subject, text, html },
-    metadata: {
-      type: "invitation" as const,
-      invitedBy: invitedBy ?? "(not logged in)",
-      appVersion: "2.5",
-    },
-    createdAt: "(serverTimestamp())",
-  };
-
   const handleCopyPayload = async () => {
     try {
-      await navigator.clipboard.writeText(JSON.stringify(previewPayload, null, 2));
+      await navigator.clipboard.writeText(JSON.stringify({ to: email.trim(), message: { subject, text, html }, metadata: { type: "invitation", invitedBy: invitedBy ?? "(not logged in)", appVersion: "2.5" }, createdAt: "(serverTimestamp())" }, null, 2));
       setStatus({ type: "success", message: "Payload JSON Copied" });
     } catch (err: unknown) {
-      setStatus({
-        type: "error",
-        message: `Void Rejection: could not copy (${err instanceof Error ? err.message : String(err)})`,
-      });
+      setStatus({ type: "error", message: `Void Rejection: could not copy` });
     }
   };
 
@@ -177,230 +145,103 @@ export default function SignalDispatch() {
       return;
     }
     if (!invitedBy) {
-      setStatus({ type: "error", message: "Void Rejection: you must be logged in to dispatch a signal." });
+      setStatus({ type: "error", message: "Void Rejection: you must be logged in." });
       return;
     }
-
     setLoading(true);
     setStatus(null);
-    setLastDocId(null);
-    setLastDocStatus(null);
-
     try {
-      const created = await addDoc(mailCollectionRef, {
-        to,
-        message: { subject, text, html },
-        metadata: {
-          type: "invitation",
-          invitedBy,
-          appVersion: "2.5",
-        },
-        createdAt: serverTimestamp(),
-      });
+      const created = await addDoc(mailCollectionRef, { to, message: { subject, text, html }, metadata: { type: "invitation", invitedBy, appVersion: "2.5" }, createdAt: serverTimestamp() });
       setLastDocId(created.id);
-      setEmail("");
-      setTitle("");
-      setClaim("");
-      setCustomMessage("");
+      setEmail(""); setTitle(""); setClaim(""); setCustomMessage("");
       setStatus({ type: "success", message: "Signal Dispatched" });
     } catch (err: unknown) {
-      setStatus({
-        type: "error",
-        message: `Void Rejection: ${err instanceof Error ? err.message : String(err)}`,
-      });
+      setStatus({ type: "error", message: `Void Rejection: ${err instanceof Error ? err.message : String(err)}` });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="space-y-4">
+    <div className="d-grid gap-3">
       {status && (
-        <div
-          className={`p-3 rounded-xl border backdrop-blur ${
-            status.type === "success"
-              ? "bg-[#0f0f1a]/70 border-[#a855f7]/40 text-[#e2e8f0]"
-              : "bg-[#1a1a2e]/70 border-[#e94560]/50 text-[#e2e8f0]"
-          }`}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-sm font-medium">{status.message}</div>
-            <button
-              type="button"
-              onClick={() => setStatus(null)}
-              className="text-xs text-[#e2e8f0]/70 hover:text-[#e2e8f0]"
-            >
-              Dismiss
-            </button>
+        <div className={`p-3 rounded border backdrop-blur ${status.type === "success" ? "bg-slate-900 bg-opacity-70 border-purple-500 border-opacity-40 text-slate-200" : "bg-danger bg-opacity-20 border-danger border-opacity-50 text-slate-200"}`}>
+          <div className="d-flex align-items-center justify-content-between gap-3">
+            <div className="small font-medium">{status.message}</div>
+            <button type="button" onClick={() => setStatus(null)} className="btn btn-link btn-sm text-slate-200 opacity-70 p-0 text-decoration-none">Dismiss</button>
           </div>
         </div>
       )}
 
-      <div className="p-6 rounded-2xl border border-[#533483]/40 bg-[#1a1a2e]/60 backdrop-blur shadow-lg shadow-purple-900/20">
-        <div className="flex items-start justify-between gap-3 mb-4">
+      <div className="p-4 rounded-2xl border border-purple-500 border-opacity-40 bg-slate-900 bg-opacity-60 backdrop-blur shadow-sm">
+        <div className="d-flex align-items-start justify-content-between gap-3 mb-4">
           <div>
-            <h3 className="font-serif text-lg text-[#e2e8f0]">SignalDispatch</h3>
-            <p className="text-xs text-[#e2e8f0]/60 font-mono">
-              artifacts/tamis-signal-v2/public/data/mail
-            </p>
+            <h3 className="font-serif fs-5 text-slate-200">SignalDispatch</h3>
+            <p className="small text-slate-400 font-mono" style={{ fontSize: '10px' }}>artifacts/tamis-signal-v2/public/data/mail</p>
           </div>
-          <div className="text-xs font-mono text-[#d946ef]">Oracle v2.5</div>
+          <div className="small font-mono text-purple-400" style={{ fontSize: '10px' }}>Oracle v2.5</div>
         </div>
 
-        <div className="mb-4 p-3 rounded-xl border border-[#533483]/25 bg-[#0f0f1a]/50">
-          <div className="text-xs font-mono text-[#e2e8f0]/70">
-            projectId: <span className="text-[#e2e8f0]">{app?.options?.projectId ?? "unknown"}</span>
-          </div>
-          <div className="text-xs font-mono text-[#e2e8f0]/70 mt-1">
-            lastDocId: <span className="text-[#e2e8f0]">{lastDocId ?? "—"}</span>
-            {lastDocStatus ? <span className="text-[#d946ef]"> • {lastDocStatus}</span> : null}
-          </div>
-          <div className="text-[11px] text-[#e2e8f0]/60 mt-1">
-            If emails aren’t sending, check whether your docs get a <span className="font-mono">delivery</span> field (or an <span className="font-mono">error</span> field) after creation.
-          </div>
+        <div className="mb-4 p-3 rounded border border-purple-500 border-opacity-25 bg-slate-950 bg-opacity-50">
+          <div className="small font-mono text-slate-400" style={{ fontSize: '10px' }}>projectId: <span className="text-slate-200">{app?.options?.projectId ?? "unknown"}</span></div>
+          <div className="small font-mono text-slate-400 mt-1" style={{ fontSize: '10px' }}>lastDocId: <span className="text-slate-200">{lastDocId ?? "—"}</span>{lastDocStatus ? <span className="text-purple-400"> • {lastDocStatus}</span> : null}</div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <button
-            type="button"
-            onClick={handleCopyPayload}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-[#0f0f1a]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono hover:border-[#d946ef]/60 hover:bg-[#0f0f1a]/80 transition-colors"
-            title="Copy the exact Firestore payload (preview)"
-          >
-            <Copy size={14} />
-            Copy Payload JSON
+        <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+          <button type="button" onClick={handleCopyPayload} className="btn btn-sm bg-slate-950 border border-purple-500 border-opacity-40 text-slate-200 small font-mono d-flex align-items-center gap-2">
+            <Copy size={14} /> Copy Payload JSON
           </button>
-          <div className="text-[11px] font-mono text-[#e2e8f0]/50">
-            invitedBy: {invitedBy ? `${invitedBy.slice(0, 6)}…` : "not logged in"}
-          </div>
         </div>
 
-        <label className="block text-xs font-mono text-[#e2e8f0]/70 mb-2">Target Email</label>
-        <input
-          type="email"
-          placeholder="you@domain.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full bg-[#0f0f1a] border border-[#533483]/50 rounded-xl p-3 text-sm text-[#e2e8f0] placeholder:text-[#e2e8f0]/30 focus:outline-none focus:ring-2 focus:ring-[#d946ef] focus:border-[#d946ef]"
-        />
+        <div className="mb-3">
+          <label className="d-block small font-mono text-slate-400 mb-1" style={{ fontSize: '10px' }}>Target Email</label>
+          <input type="email" placeholder="you@domain.com" value={email} onChange={(e) => setEmail(e.target.value)} className="w-100 bg-slate-950 border border-purple-500 border-opacity-50 rounded p-3 small text-slate-200 focus-outline-none focus-border-purple-500" />
+        </div>
 
-        <label className="block text-xs font-mono text-[#e2e8f0]/70 mt-4 mb-2">Title</label>
-        <input
-          type="text"
-          placeholder="e.g., Administrator, Seeker, Initiate"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full bg-[#0f0f1a] border border-[#533483]/50 rounded-xl p-3 text-sm text-[#e2e8f0] placeholder:text-[#e2e8f0]/30 focus:outline-none focus:ring-2 focus:ring-[#d946ef] focus:border-[#d946ef]"
-        />
+        <div className="mb-3">
+          <label className="d-block small font-mono text-slate-400 mb-1" style={{ fontSize: '10px' }}>Title</label>
+          <input type="text" placeholder="e.g., Administrator, Seeker" value={title} onChange={(e) => setTitle(e.target.value)} className="w-100 bg-slate-950 border border-purple-500 border-opacity-50 rounded p-3 small text-slate-200 focus-outline-none focus-border-purple-500" />
+        </div>
 
-        <label className="block text-xs font-mono text-[#e2e8f0]/70 mt-4 mb-2">Claim</label>
-        <input
-          type="text"
-          placeholder="e.g., your place in the Digital Grimoire, your destiny"
-          value={claim}
-          onChange={(e) => setClaim(e.target.value)}
-          className="w-full bg-[#0f0f1a] border border-[#533483]/50 rounded-xl p-3 text-sm text-[#e2e8f0] placeholder:text-[#e2e8f0]/30 focus:outline-none focus:ring-2 focus:ring-[#d946ef] focus:border-[#d946ef]"
-        />
+        <div className="mb-3">
+          <label className="d-block small font-mono text-slate-400 mb-1" style={{ fontSize: '10px' }}>Claim</label>
+          <input type="text" placeholder="e.g., your place in the Grimoire" value={claim} onChange={(e) => setClaim(e.target.value)} className="w-100 bg-slate-950 border border-purple-500 border-opacity-50 rounded p-3 small text-slate-200 focus-outline-none focus-border-purple-500" />
+        </div>
 
-        <label className="block text-xs font-mono text-[#e2e8f0]/70 mt-4 mb-2">Custom Invite Message (optional)</label>
-        <textarea
-          placeholder="Whisper your custom summoning..."
-          value={customMessage}
-          onChange={(e) => setCustomMessage(e.target.value)}
-          className="w-full bg-[#0f0f1a] border border-[#533483]/50 rounded-xl p-3 text-sm text-[#e2e8f0] placeholder:text-[#e2e8f0]/30 focus:outline-none focus:ring-2 focus:ring-[#d946ef] focus:border-[#d946ef] min-h-[110px] resize-y"
-        />
+        <div className="mb-3">
+          <label className="d-block small font-mono text-slate-400 mb-1" style={{ fontSize: '10px' }}>Custom Message</label>
+          <textarea placeholder="Whisper your custom summoning..." value={customMessage} onChange={(e) => setCustomMessage(e.target.value)} className="w-100 bg-slate-950 border border-purple-500 border-opacity-50 rounded p-3 small text-slate-200 focus-outline-none focus-border-purple-500 min-h-100" />
+        </div>
 
-        <button
-          type="button"
-          onClick={handleDispatch}
-          disabled={loading}
-          className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#9d4edd] hover:bg-[#a855f7] text-white font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {loading ? (
-            <>
-              <Zap className="animate-pulse" size={18} />
-              Dispatching…
-            </>
-          ) : (
-            <>
-              <Send size={18} />
-              Send Signal
-            </>
-          )}
+        <button type="button" onClick={handleDispatch} disabled={loading} className="btn btn-primary w-100 py-3 rounded bg-purple-600 border-0 d-flex align-items-center justify-content-center gap-2">
+          {loading ? <><Zap className="animate-pulse" size={18} /> Dispatching…</> : <><Send size={18} /> Send Signal</>}
         </button>
       </div>
 
-      <div className="p-6 rounded-2xl border border-[#533483]/30 bg-[#0f0f1a]/70 backdrop-blur shadow-lg shadow-purple-900/20">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="font-serif text-base text-[#e2e8f0]">Recent Echoes</h4>
-          <span className="text-xs font-mono text-[#e2e8f0]/50">last 5</span>
+      <div className="p-4 rounded-2xl border border-purple-500 border-opacity-30 bg-slate-950 bg-opacity-70 backdrop-blur shadow-sm">
+        <div className="d-flex align-items-center justify-content-between mb-3">
+          <h4 className="font-serif fs-6 text-slate-200 mb-0">Recent Echoes</h4>
+          <span className="small font-mono text-slate-500" style={{ fontSize: '9px' }}>last 5</span>
         </div>
 
-        {recent.length === 0 ? (
-          <div className="text-sm text-[#e2e8f0]/50">No invitations yet.</div>
-        ) : (
-          <div className="space-y-2">
+        {recent.length === 0 ? <div className="small text-slate-500">No invitations yet.</div> : (
+          <div className="d-grid gap-2">
             {recent.map((r) => (
-              <div
-                key={r.id}
-                className="p-3 rounded-xl border border-[#533483]/25 bg-[#1a1a2e]/40"
-              >
-                <div className="flex items-start justify-between gap-3">
+              <div key={r.id} className="p-3 rounded border border-purple-500 border-opacity-25 bg-slate-900 bg-opacity-40">
+                <div className="d-flex align-items-start justify-content-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-sm text-[#e2e8f0] truncate">{r.to ?? "—"}</div>
-                    <div className="text-[11px] font-mono text-[#e2e8f0]/60 mt-1">
-                      {formatWhen(r.createdAt)}
-                      {r.metadata?.invitedBy ? ` • by ${r.metadata.invitedBy.slice(0, 6)}…` : ""}
-                    </div>
+                    <div className="small text-slate-200 truncate">{r.to ?? "—"}</div>
+                    <div className="small font-mono text-slate-500 mt-1" style={{ fontSize: '9px' }}>{formatWhen(r.createdAt)}{r.metadata?.invitedBy ? ` • by ${r.metadata.invitedBy.slice(0, 6)}…` : ""}</div>
                   </div>
-                  <div className="text-[11px] font-mono text-[#d946ef]">
-                    {r.delivery?.state ?? r.metadata?.type ?? "invitation"}
-                  </div>
+                  <div className="small font-mono text-purple-400" style={{ fontSize: '9px' }}>{r.delivery?.state ?? r.metadata?.type ?? "invitation"}</div>
                 </div>
-
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
-                    className="px-2 py-1 rounded-lg bg-[#0f0f1a]/60 border border-[#533483]/35 text-[#e2e8f0]/80 text-[11px] font-mono hover:border-[#d946ef]/60 transition-colors"
-                  >
-                    {expandedId === r.id ? "Hide Debug" : "Show Debug"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigator.clipboard?.writeText(r.id)}
-                    className="px-2 py-1 rounded-lg bg-[#0f0f1a]/60 border border-[#533483]/35 text-[#e2e8f0]/80 text-[11px] font-mono hover:border-[#d946ef]/60 transition-colors inline-flex items-center gap-1"
-                    title="Copy document ID"
-                  >
-                    <Copy size={12} />
-                    Copy Doc ID
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigator.clipboard?.writeText(JSON.stringify(r, null, 2))}
-                    className="px-2 py-1 rounded-lg bg-[#0f0f1a]/60 border border-[#533483]/35 text-[#e2e8f0]/80 text-[11px] font-mono hover:border-[#d946ef]/60 transition-colors inline-flex items-center gap-1"
-                    title="Copy full doc (debug)"
-                  >
-                    <Copy size={12} />
-                    Copy Doc JSON
-                  </button>
+                <div className="mt-2 d-flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setExpandedId(expandedId === r.id ? null : r.id)} className="btn btn-sm btn-link text-slate-400 p-0 text-decoration-none small font-mono" style={{ fontSize: '9px' }}>{expandedId === r.id ? "Hide Debug" : "Show Debug"}</button>
+                  <button type="button" onClick={() => navigator.clipboard?.writeText(r.id)} className="btn btn-sm btn-link text-slate-400 p-0 text-decoration-none small font-mono d-flex align-items-center gap-1" style={{ fontSize: '9px' }}><Copy size={10} /> Copy ID</button>
                 </div>
-
                 {expandedId === r.id && (
-                  <pre className="mt-2 p-3 rounded-xl bg-[#0f0f1a]/70 border border-[#533483]/25 text-[11px] text-[#e2e8f0]/80 overflow-x-auto">
-{JSON.stringify(
-  {
-    id: r.id,
-    to: r.to,
-    createdAt: r.createdAt ? formatWhen(r.createdAt) : null,
-    metadata: r.metadata,
-    message: { subject: r.message?.subject },
-    delivery: r.delivery,
-    error: r.error,
-  },
-  null,
-  2
-)}
+                  <pre className="mt-2 p-2 rounded bg-slate-950 border border-purple-500 border-opacity-25 small text-slate-400 overflow-auto" style={{ fontSize: '9px' }}>
+                    {JSON.stringify({ id: r.id, to: r.to, createdAt: r.createdAt ? formatWhen(r.createdAt) : null, metadata: r.metadata, message: { subject: r.message?.subject }, delivery: r.delivery, error: r.error }, null, 2)}
                   </pre>
                 )}
               </div>
@@ -411,4 +252,3 @@ export default function SignalDispatch() {
     </div>
   );
 }
-

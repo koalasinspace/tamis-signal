@@ -1,14 +1,207 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "bootstrap/dist/css/bootstrap.min.css";
 
+:root {
+  /* Core Palette: Slate & Void */
+  --slate-50: #f8fafc;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+  --slate-950: #020617;
+  
+  --slate-900-rgb: 15, 23, 42;
+  --slate-950-rgb: 2, 6, 23;
+  --slate-800-rgb: 30, 41, 59;
+  
+  /* Primary Accents */
+  --purple-500: #a855f7;
+  --purple-600: #9333ea;
+  --purple-900-rgb: 88, 28, 135;
+  
+  --indigo-500: #6366f1;
+  --indigo-600: #4f46e5;
+  --indigo-950-rgb: 30, 27, 75;
+
+  /* Atmospheric Variables (to be controlled by theme) */
+  --theme-accent: var(--purple-500);
+  --theme-accent-rgb: 168, 85, 247;
+  --theme-bg-gradient: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(2, 6, 23, 1) 100%);
+  --theme-border: rgba(168, 85, 247, 0.2);
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--slate-950);
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(var(--purple-900-rgb), 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 0% 100%, rgba(var(--indigo-950-rgb), 0.1) 0%, transparent 40%);
+  background-attachment: fixed;
+  color: var(--slate-200);
+  min-height: 100vh;
+}
+
+/* Typography */
+.font-serif {
+  font-family: 'Playfair Display', serif;
+  letter-spacing: -0.02em;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+h1, h2, h3, h4 {
+  font-weight: 600;
+}
+
+.text-gradient {
+  background: linear-gradient(to right, var(--slate-50), var(--slate-400));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Cold Demodulation: Glassmorphism & Cards */
+.signal-card {
+  background: rgba(var(--slate-900-rgb), 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--theme-border);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.signal-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--theme-border), transparent);
+  opacity: 0.5;
+}
+
+.signal-card:hover {
+  border-color: rgba(var(--theme-accent-rgb), 0.4);
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.5);
+  transform: translateY(-2px);
+}
+
+.signal-card-active {
+  border-color: var(--theme-accent);
+  background: rgba(var(--slate-900-rgb), 0.8);
+}
+
+/* Custom Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
+  width: 4px;
+  height: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #1e293b;
+  background: rgba(var(--slate-950-rgb), 0.5);
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #4c1d95;
-  border-radius: 4px;
+  background: var(--slate-700);
+  border-radius: 10px;
 }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--theme-accent);
+}
+
+/* Navigation Overrides */
+.fixed-bottom {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(var(--slate-950-rgb), 0.8) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+@media (min-width: 768px) {
+  .position-md-fixed {
+    background: rgba(var(--slate-950-rgb), 0.4) !important;
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+  }
+}
+
+/* Inputs & Form Refinement */
+.form-control, .form-select {
+  background-color: rgba(var(--slate-950-rgb), 0.5) !important;
+  border: 1px solid var(--slate-800) !important;
+  color: var(--slate-200) !important;
+  border-radius: 0.75rem !important;
+  padding: 0.75rem 1rem !important;
+  transition: all 0.2s ease !important;
+}
+
+.form-control:focus, .form-select:focus {
+  background-color: rgba(var(--slate-950-rgb), 0.8) !important;
+  border-color: var(--theme-accent) !important;
+  box-shadow: 0 0 0 4px rgba(var(--theme-accent-rgb), 0.1) !important;
+  outline: none !important;
+}
+
+.form-control::placeholder {
+  color: var(--slate-600);
+}
+
+/* Utilities */
+.bg-slate-950 { background-color: var(--slate-950) !important; }
+.bg-slate-900 { background-color: var(--slate-900) !important; }
+.bg-slate-800 { background-color: var(--slate-800) !important; }
+
+.text-accent { color: var(--theme-accent) !important; }
+.border-accent { border-color: var(--theme-accent) !important; }
+
+/* Animations */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s infinite ease-in-out;
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.scanline-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.scanline-container::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to bottom, transparent, rgba(var(--theme-accent-rgb), 0.05), transparent);
+  animation: scanline 8s infinite linear;
+  pointer-events: none;
+}
+
+/* Grid Spacing */
+.g-custom { --bs-gutter-x: 1.5rem; --bs-gutter-y: 1.5rem; }
+
+/* Opacity & RGB helpers for JS injection */
+.bg-theme-opacity-10 { background-color: rgba(var(--theme-accent-rgb), 0.1) !important; }
+.bg-theme-opacity-20 { background-color: rgba(var(--theme-accent-rgb), 0.2) !important; }

@@ -27,62 +27,61 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-purple-50 font-sans flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/40 via-slate-950 to-slate-950" />
-      <div className="bg-slate-900/80 backdrop-blur-md border border-purple-500/30 p-8 rounded-3xl w-full max-w-lg shadow-2xl relative z-10">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-serif text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-indigo-300">
-            Tami's Signal
+    <div className="min-vh-100 d-flex align-items-center justify-content-center p-3 position-relative overflow-hidden scanline-container">
+      <div className="signal-card w-100 max-w-lg p-4 p-md-5 shadow-lg text-center animate-in fade-in duration-500">
+        <header className="mb-5">
+          <h1 className="display-6 font-serif text-white text-gradient">
+            Tami&apos;s Signal
           </h1>
-          <p className="text-slate-400 text-xs uppercase tracking-widest mt-2">
-            Create your account
+          <p className="text-slate-500 small font-mono mt-2" style={{ fontSize: '10px' }}>
+            NEW_NODE_DETECTION • INITIALIZE_SEQUENCE
           </p>
-        </div>
+        </header>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-900/30 border border-red-500/50 rounded text-red-200 text-xs">
+          <div className="alert alert-danger mb-4 p-2 rounded small border-opacity-20 bg-danger bg-opacity-10 text-red-200">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="d-grid gap-3">
           <input
             required
             type="text"
-            placeholder="Full Name"
-            className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 text-sm focus:outline-none focus:border-purple-500 text-white"
+            placeholder="FULL_NAME"
+            className="form-control font-mono small"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
           <input
             required
             type="email"
-            placeholder="Email Address"
-            className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 text-sm focus:outline-none focus:border-purple-500 text-white"
+            placeholder="EMAIL_RELAY"
+            className="form-control font-mono small"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
           <input
             required
             type="password"
-            placeholder="Password"
-            className="w-full bg-slate-950 border border-purple-500/30 rounded p-3 text-sm focus:outline-none focus:border-purple-500 text-white"
+            placeholder="SECURITY_KEY"
+            className="form-control font-mono small"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
           <button
             disabled={loading}
             type="submit"
-            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium py-3 rounded shadow-lg transition-all mt-4 disabled:opacity-50"
+            className="btn btn-primary bg-theme-accent border-0 py-3 rounded-pill font-mono small text-white mt-3"
           >
-            {loading ? "Creating account…" : "Sign up"}
+            {loading ? "PROCESSING..." : "INITIALIZE_SEQUENCE"}
           </button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-slate-400">
-          Already have an account?{" "}
-          <Link to="/login" className="text-purple-400 hover:underline">
-            Log in
+        <p className="mt-5 text-center small text-slate-500 font-mono" style={{ fontSize: '10px' }}>
+          ALREADY_IDENTIFIED?{" "}
+          <Link to="/login" className="text-accent text-decoration-none border-bottom border-accent border-opacity-30">
+            ACCESS_AUTHORIZED
           </Link>
         </p>
       </div>

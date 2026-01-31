@@ -128,7 +128,6 @@ export default function Onboarding({ initial, onComplete }: Props) {
         },
       };
 
-      // Critical requirement: weave report must be generated during completion.
       const weaveReport = await generateWeaveReport(profile);
       await onComplete({ profile, weaveReport });
     } catch (e) {
@@ -139,250 +138,131 @@ export default function Onboarding({ initial, onComplete }: Props) {
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto">
+    <div className="container-fluid max-w-3xl mx-auto p-3">
       {error && (
-        <div className="mb-4 p-3 bg-red-900/30 border border-red-500/40 rounded-xl text-red-200 text-sm">
+        <div className="alert alert-danger mb-4 rounded-3 text-red-200 small border-opacity-20 bg-danger bg-opacity-10">
           {error}
         </div>
       )}
 
-      <div className="rounded-3xl border border-purple-500/20 bg-slate-950/60 p-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <div className="text-xs uppercase tracking-widest text-slate-500">Onboarding</div>
-            <h2 className="mt-1 text-xl font-serif text-white">Soulprint Intake</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Enter anchors. We’ll compute the derived pillars and weave a signal report.
-            </p>
-          </div>
-        </div>
+      <div className="signal-card scanline-container p-4 p-md-5">
+        <header className="mb-5">
+          <div className="small font-mono text-slate-500 mb-1" style={{ fontSize: '10px' }}>SYSTEM_INITIALIZATION</div>
+          <h2 className="fs-3 font-serif text-white mb-2 text-gradient">Soulprint Intake</h2>
+          <p className="small text-slate-400 font-mono mb-0">
+            ENTER_ANCHORS • WEAVE_REPORT_PENDING
+          </p>
+        </header>
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="text-[10px] uppercase tracking-widest text-slate-500">Name</label>
+        <div className="row g-4">
+          <div className="col-12 col-md-6">
+            <label className="small font-mono text-slate-500 mb-2" style={{ fontSize: '9px' }}>USER_NAME</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-purple-500/60"
+              className="form-control font-mono small"
               placeholder="Full name"
             />
           </div>
-          <div>
-            <label className="text-[10px] uppercase tracking-widest text-slate-500">Email</label>
+          <div className="col-12 col-md-6">
+            <label className="small font-mono text-slate-500 mb-2" style={{ fontSize: '9px' }}>EMAIL_RELAY</label>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-purple-500/60"
+              className="form-control font-mono small"
               placeholder="Email"
             />
           </div>
 
-          <div>
-            <label className="text-[10px] uppercase tracking-widest text-slate-500">Birthday</label>
+          <div className="col-12 col-md-6">
+            <label className="small font-mono text-slate-500 mb-2" style={{ fontSize: '9px' }}>BIRTH_DATE</label>
             <input
               type="date"
               value={birthday}
               onChange={(e) => setBirthday(e.target.value)}
-              className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-purple-500/60"
+              className="form-control font-mono small"
             />
           </div>
-          <div>
-            <label className="text-[10px] uppercase tracking-widest text-slate-500">Birth Time</label>
+          <div className="col-12 col-md-6">
+            <label className="small font-mono text-slate-500 mb-2" style={{ fontSize: '9px' }}>BIRTH_TIME</label>
             <input
               type="time"
               value={birthTime}
               onChange={(e) => setBirthTime(e.target.value)}
-              className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-purple-500/60"
+              className="form-control font-mono small"
             />
           </div>
 
-          <div className="md:col-span-2">
-            <label className="text-[10px] uppercase tracking-widest text-slate-500">Birth Location</label>
+          <div className="col-12">
+            <label className="small font-mono text-slate-500 mb-2" style={{ fontSize: '9px' }}>BIRTH_COORDINATES</label>
             <input
               value={birthLocation}
               onChange={(e) => setBirthLocation(e.target.value)}
-              className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-purple-500/60"
+              className="form-control font-mono small"
               placeholder="City, Country"
             />
           </div>
 
-          <div>
-            <label className="text-[10px] uppercase tracking-widest text-slate-500">Favorite Color</label>
+          <div className="col-12 col-md-6">
+            <label className="small font-mono text-slate-500 mb-2" style={{ fontSize: '9px' }}>POWER_COLOR</label>
             <input
               value={favoriteColor}
               onChange={(e) => setFavoriteColor(e.target.value)}
-              className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-purple-500/60"
+              className="form-control font-mono small"
               placeholder="e.g., Purple"
             />
           </div>
-          <div>
-            <label className="text-[10px] uppercase tracking-widest text-slate-500">Favorite Number</label>
+          <div className="col-12 col-md-6">
+            <label className="small font-mono text-slate-500 mb-2" style={{ fontSize: '9px' }}>POWER_NUMBER</label>
             <input
               value={favoriteNumber}
               onChange={(e) => setFavoriteNumber(e.target.value)}
-              className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-purple-500/60"
+              className="form-control font-mono small"
               placeholder="e.g., 7"
             />
           </div>
 
-          <div>
-            <label className="text-[10px] uppercase tracking-widest text-slate-500">Persona Mode</label>
+          <div className="col-12 col-md-6">
+            <label className="small font-mono text-slate-500 mb-2" style={{ fontSize: '9px' }}>VOICE_MODE</label>
             <select
               value={personaMode ?? "tami"}
               onChange={(e) => setPersonaMode(e.target.value as UserProfile["personaMode"])}
-              className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-purple-500/60"
+              className="form-select font-mono small"
             >
-              <option value="tami">Tami</option>
-              <option value="oracle">Oracle</option>
+              <option value="tami">TAMI</option>
+              <option value="oracle">ORACLE</option>
             </select>
           </div>
 
-          <div>
-            <label className="text-[10px] uppercase tracking-widest text-slate-500">Inner Monologue</label>
+          <div className="col-12 col-md-6">
+            <label className="small font-mono text-slate-500 mb-2" style={{ fontSize: '9px' }}>MONOLOGUE_STYLE</label>
             <select
               value={monologueStyle ?? "Verbal"}
               onChange={(e) => setMonologueStyle(e.target.value as UserProfile["monologueStyle"])}
-              className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-purple-500/60"
+              className="form-select font-mono small"
             >
-              <option value="Verbal">Verbal</option>
-              <option value="Visual">Visual</option>
-              <option value="Musical">Musical</option>
-              <option value="Anendophasic">Anendophasic</option>
-              <option value="Anauralic">Anauralic</option>
+              <option value="Verbal">VERBAL</option>
+              <option value="Visual">VISUAL</option>
+              <option value="Musical">MUSICAL</option>
+              <option value="Anendophasic">ANENDOPHASIC</option>
             </select>
           </div>
-
-          <div className="md:col-span-2">
-            <label className="text-[10px] uppercase tracking-widest text-slate-500">
-              Geomancy Figure (optional manual override)
-            </label>
-            <input
-              value={geomancyFigure}
-              onChange={(e) => setGeomancyFigure(e.target.value)}
-              className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-purple-500/60"
-              placeholder="e.g., Carcer"
-            />
-          </div>
-
-          <div className="md:col-span-2 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
-              Helix Traits (optional manual)
-            </div>
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-500">COMT</label>
-                <select
-                  value={comtStatus as any}
-                  onChange={(e) => setComtStatus(e.target.value as any)}
-                  className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white"
-                >
-                  <option value="Unknown">Unknown</option>
-                  <option value="Warrior (Met/Met)">Warrior (Met/Met)</option>
-                  <option value="Worrier (Val/Val)">Worrier (Val/Val)</option>
-                  <option value="Balanced">Balanced</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-500">DRD4</label>
-                <select
-                  value={drd4Status as any}
-                  onChange={(e) => setDrd4Status(e.target.value as any)}
-                  className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white"
-                >
-                  <option value="Unknown">Unknown</option>
-                  <option value="Seeker (7R+)">Seeker (7R+)</option>
-                  <option value="Settler (No 7R)">Settler (No 7R)</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-500">OXTR</label>
-                <select
-                  value={oxtrStatus as any}
-                  onChange={(e) => setOxtrStatus(e.target.value as any)}
-                  className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white"
-                >
-                  <option value="Unknown">Unknown</option>
-                  <option value="Empath (GG)">Empath (GG)</option>
-                  <option value="Lone Wolf (AA)">Lone Wolf (AA)</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-500">BDNF</label>
-                <select
-                  value={bdnfStatus as any}
-                  onChange={(e) => setBdnfStatus(e.target.value as any)}
-                  className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white"
-                >
-                  <option value="Unknown">Unknown</option>
-                  <option value="Plastic (Val/Val)">Plastic (Val/Val)</option>
-                  <option value="Rigid (Met Carrier)">Rigid (Met Carrier)</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-500">FAAH</label>
-                <select
-                  value={faahStatus as any}
-                  onChange={(e) => setFaahStatus(e.target.value as any)}
-                  className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white"
-                >
-                  <option value="Unknown">Unknown</option>
-                  <option value="Stoic (A Carrier)">Stoic (A Carrier)</option>
-                  <option value="Sensitive (CC)">Sensitive (CC)</option>
-                </select>
-              </div>
-            </div>
-          </div>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/30 p-4">
-          <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
-            Derived Pillars (preview)
-          </div>
-          <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-3 text-xs font-mono">
-            <div className="p-3 rounded-xl border border-slate-800 bg-slate-950/40">
-              <div className="text-slate-500 text-[10px] uppercase">Zodiac</div>
-              <div className="text-slate-200">{derived.zodiacSign || "—"}</div>
-            </div>
-            <div className="p-3 rounded-xl border border-slate-800 bg-slate-950/40">
-              <div className="text-slate-500 text-[10px] uppercase">Planetary Ruler</div>
-              <div className="text-slate-200">{derived.planetaryRuler || "—"}</div>
-            </div>
-            <div className="p-3 rounded-xl border border-slate-800 bg-slate-950/40">
-              <div className="text-slate-500 text-[10px] uppercase">Chinese</div>
-              <div className="text-slate-200">
-                {[derived.chineseElement, derived.chineseZodiac].filter(Boolean).join(" ") || "—"}
-              </div>
-            </div>
-            <div className="p-3 rounded-xl border border-slate-800 bg-slate-950/40">
-              <div className="text-slate-500 text-[10px] uppercase">Life Path</div>
-              <div className="text-slate-200">{derived.lifePathNumber || "—"}</div>
-            </div>
-            <div className="p-3 rounded-xl border border-slate-800 bg-slate-950/40">
-              <div className="text-slate-500 text-[10px] uppercase">Destiny</div>
-              <div className="text-slate-200">{derived.destinyNumber || "—"}</div>
-            </div>
-            <div className="p-3 rounded-xl border border-slate-800 bg-slate-950/40">
-              <div className="text-slate-500 text-[10px] uppercase">Tarot</div>
-              <div className="text-slate-200">{derived.tarotArchetype || "—"}</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
-          <div className="text-xs text-slate-500">
-            {canSubmit ? "Ready to weave." : "Fill the required anchors to continue."}
+        <div className="mt-5 d-flex align-items-center justify-content-between gap-3 flex-wrap">
+          <div className="small font-mono text-slate-500" style={{ fontSize: '10px' }}>
+            {canSubmit ? "SIGNAL_STABLE: READY_FOR_WEAVE" : "SIGNAL_FRAGMENTED: INPUT_REQUIRED"}
           </div>
           <button
             type="button"
             disabled={!canSubmit || submitting}
             onClick={handleComplete}
-            className="px-4 py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50"
+            className="btn btn-primary bg-theme-accent border-0 px-5 py-3 rounded-pill font-mono small text-white shadow-lg"
           >
-            {submitting ? "Weaving…" : "Complete"}
+            {submitting ? "WEAVING..." : "INITIALIZE_SOULPRINT"}
           </button>
         </div>
       </div>
     </div>
   );
 }
-

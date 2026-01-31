@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@popperjs/core": "^2.11.8",
+    "bootstrap": "^5.3.8",
     "firebase": "^10.7.1",
     "lucide-react": "^0.303.0",
     "react": "^18.2.0",
@@ -20,9 +22,6 @@
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "^10.4.23",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^3.4.19",
     "typescript": "^5.2.2",
     "vite": "^5.0.8"
   }

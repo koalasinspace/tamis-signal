@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { collection, query, orderBy, limit, onSnapshot, Timestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import type { GenerativeLogEntry } from "../lib/generativeLogger";
-import { Copy, ChevronDown, ChevronUp, Filter, X } from "lucide-react";
+import { Copy, ChevronDown, ChevronUp, Filter } from "lucide-react";
 
 export default function GenerativeLogViewer() {
   const [logs, setLogs] = useState<GenerativeLogEntry[]>([]);
@@ -43,15 +43,12 @@ export default function GenerativeLogViewer() {
 
   useEffect(() => {
     let filtered = [...logs];
-
     if (filterType !== "all") {
       filtered = filtered.filter((log) => log.requestType === filterType);
     }
-
     if (filterStatus !== "all") {
       filtered = filtered.filter((log) => log.status === filterStatus);
     }
-
     setFilteredLogs(filtered);
   }, [logs, filterType, filterStatus]);
 
@@ -77,57 +74,43 @@ export default function GenerativeLogViewer() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "success":
-        return "text-green-400";
-      case "error":
-        return "text-red-400";
-      case "validation_failed":
-        return "text-yellow-400";
-      default:
-        return "text-slate-400";
+      case "success": return "text-success";
+      case "error": return "text-danger";
+      case "validation_failed": return "text-warning";
+      default: return "text-slate-400";
     }
   };
 
   return (
-    <div className="mt-6 p-6 rounded-2xl border border-[#533483]/30 bg-[#0f0f1a]/70 backdrop-blur shadow-lg shadow-purple-900/20">
-      <div className="flex items-start justify-between gap-3 mb-4">
+    <div className="mt-4 p-4 rounded-2xl border border-purple-500 border-opacity-30 bg-slate-900 bg-opacity-70 backdrop-blur shadow-sm">
+      <div className="d-flex align-items-start justify-content-between gap-3 mb-4">
         <div>
-          <h3 className="font-serif text-lg text-[#e2e8f0] flex items-center gap-2">
+          <h3 className="font-serif fs-5 text-slate-200 d-flex align-items-center gap-2">
             <Filter size={18} />
             Generative Logs
           </h3>
-          <p className="text-xs font-mono text-[#e2e8f0]/60 mt-1">
+          <p className="small font-mono text-slate-400 mt-1" style={{ fontSize: '10px' }}>
             Debug Daily Truth & Guidance generation
           </p>
         </div>
-        <div className="text-xs font-mono text-[#d946ef]">
+        <div className="small font-mono text-purple-400" style={{ fontSize: '10px' }}>
           {filteredLogs.length} / {logs.length} logs
         </div>
       </div>
 
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-mono text-[#e2e8f0]/60">Type:</label>
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value as any)}
-            className="px-3 py-1 rounded-lg bg-[#1a1a2e]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono focus:outline-none focus:border-[#d946ef]/60"
-          >
+      <div className="d-flex flex-wrap gap-3 mb-4">
+        <div className="d-flex align-items-center gap-2">
+          <label className="small font-mono text-slate-500" style={{ fontSize: '10px' }}>Type:</label>
+          <select value={filterType} onChange={(e) => setFilterType(e.target.value as any)} className="form-select form-select-sm bg-slate-950 border-purple-500 border-opacity-40 text-slate-200 small font-mono">
             <option value="all">All</option>
             <option value="dailyTruth">Daily Truth</option>
             <option value="guidance">Guidance</option>
           </select>
         </div>
 
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-mono text-[#e2e8f0]/60">Status:</label>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as any)}
-            className="px-3 py-1 rounded-lg bg-[#1a1a2e]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono focus:outline-none focus:border-[#d946ef]/60"
-          >
+        <div className="d-flex align-items-center gap-2">
+          <label className="small font-mono text-slate-500" style={{ fontSize: '10px' }}>Status:</label>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className="form-select form-select-sm bg-slate-950 border-purple-500 border-opacity-40 text-slate-200 small font-mono">
             <option value="all">All</option>
             <option value="success">Success</option>
             <option value="error">Error</option>
@@ -135,182 +118,66 @@ export default function GenerativeLogViewer() {
           </select>
         </div>
 
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-mono text-[#e2e8f0]/60">Limit:</label>
-          <select
-            value={maxLogs}
-            onChange={(e) => setMaxLogs(Number(e.target.value))}
-            className="px-3 py-1 rounded-lg bg-[#1a1a2e]/60 border border-[#533483]/40 text-[#e2e8f0] text-xs font-mono focus:outline-none focus:border-[#d946ef]/60"
-          >
+        <div className="d-flex align-items-center gap-2">
+          <label className="small font-mono text-slate-500" style={{ fontSize: '10px' }}>Limit:</label>
+          <select value={maxLogs} onChange={(e) => setMaxLogs(Number(e.target.value))} className="form-select form-select-sm bg-slate-950 border-purple-500 border-opacity-40 text-slate-200 small font-mono">
             <option value={25}>25</option>
             <option value={50}>50</option>
             <option value={100}>100</option>
-            <option value={200}>200</option>
           </select>
         </div>
       </div>
 
-      {/* Error Display */}
       {error && (
-        <div className="mb-4 p-3 rounded-xl bg-red-950/20 border border-red-500/30">
-          <div className="text-xs font-mono text-red-400">Error: {error}</div>
+        <div className="alert alert-danger p-2 small mb-4">
+          Error: {error}
         </div>
       )}
 
-      {/* Logs List */}
-      <div className="space-y-2 max-h-[600px] overflow-y-auto">
+      <div className="d-grid gap-2 overflow-auto" style={{ maxHeight: '600px' }}>
         {filteredLogs.length === 0 && !error ? (
-          <div className="text-center py-8 text-[#e2e8f0]/40 text-sm font-mono">
-            No logs found. Generate a Daily Truth or ask for Guidance to create logs.
+          <div className="text-center py-5 text-slate-500 small font-mono">
+            No logs found.
           </div>
-        ) : filteredLogs.length > 0 ? (
+        ) : (
           filteredLogs.map((log) => {
             const isExpanded = expandedLogs.has(log.id || "");
             return (
-              <div
-                key={log.id}
-                className="p-4 rounded-xl border border-[#533483]/25 bg-[#1a1a2e]/40 hover:bg-[#1a1a2e]/60 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`text-xs font-mono font-semibold ${getStatusColor(log.status)}`}>
+              <div key={log.id} className="p-3 rounded border border-purple-500 border-opacity-25 bg-slate-800 bg-opacity-40">
+                <div className="d-flex align-items-start justify-content-between gap-3">
+                  <div className="flex-fill min-w-0">
+                    <div className="d-flex align-items-center gap-2 mb-2">
+                      <span className={`small font-mono font-bold ${getStatusColor(log.status)}`} style={{ fontSize: '10px' }}>
                         {log.status.toUpperCase()}
                       </span>
-                      <span className="text-xs font-mono text-[#e2e8f0]/60">
-                        {log.requestType}
-                      </span>
-                      <span className="text-xs font-mono text-[#e2e8f0]/40">
-                        {formatTimestamp(log.timestamp)}
-                      </span>
-                      {log.duration && (
-                        <span className="text-xs font-mono text-[#e2e8f0]/40">
-                          {log.duration}ms
-                        </span>
-                      )}
+                      <span className="small font-mono text-slate-400" style={{ fontSize: '10px' }}>{log.requestType}</span>
+                      <span className="small font-mono text-slate-500" style={{ fontSize: '9px' }}>{formatTimestamp(log.timestamp)}</span>
                     </div>
 
-                    {log.status === "error" && log.error && (
-                      <div className="mb-2 p-2 rounded bg-red-950/20 border border-red-500/30">
-                        <div className="text-xs font-mono text-red-400">
-                          Error: {log.error.message}
-                        </div>
-                        {log.error.code && (
-                          <div className="text-xs font-mono text-red-400/60 mt-1">
-                            Code: {log.error.code}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {log.status === "validation_failed" && log.metadata.missingFields && (
-                      <div className="mb-2 p-2 rounded bg-yellow-950/20 border border-yellow-500/30">
-                        <div className="text-xs font-mono text-yellow-400">
-                          Missing fields: {log.metadata.missingFields.join(", ")}
-                        </div>
-                      </div>
-                    )}
-
-                    {log.response && (
-                      <div className="mb-2">
-                        <div className="text-xs font-mono text-[#e2e8f0]/60 mb-1">Response:</div>
-                        <div className="text-sm text-[#e2e8f0] bg-[#0f0f1a]/50 p-2 rounded border border-[#533483]/20">
-                          {log.response.substring(0, isExpanded ? log.response.length : 200)}
-                          {log.response.length > 200 && !isExpanded && "..."}
-                        </div>
-                        {log.responseLength && (
-                          <div className="text-xs font-mono text-[#e2e8f0]/40 mt-1">
-                            {log.responseLength} chars
-                          </div>
-                        )}
-                      </div>
-                    )}
-
                     {isExpanded && (
-                      <div className="mt-3 space-y-3">
+                      <div className="mt-3 d-grid gap-2">
                         <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="text-xs font-mono text-[#e2e8f0]/60">Prompt:</div>
-                            <button
-                              onClick={() => copyToClipboard(log.prompt)}
-                              className="text-xs font-mono text-[#d946ef] hover:text-[#e2e8f0] flex items-center gap-1"
-                            >
-                              <Copy size={12} />
-                              Copy
-                            </button>
+                          <div className="d-flex align-items-center justify-content-between mb-1">
+                            <div className="small font-mono text-slate-500" style={{ fontSize: '9px' }}>Response:</div>
+                            <button onClick={() => copyToClipboard(log.response || "")} className="btn btn-sm btn-link text-purple-400 p-0 text-decoration-none small font-mono" style={{ fontSize: '9px' }}>Copy</button>
                           </div>
-                          <div className="text-xs text-[#e2e8f0]/80 bg-[#0f0f1a]/50 p-2 rounded border border-[#533483]/20 font-mono whitespace-pre-wrap break-words">
-                            {log.prompt}
-                          </div>
-                          <div className="text-xs font-mono text-[#e2e8f0]/40 mt-1">
-                            {log.promptLength} chars
-                          </div>
+                          <div className="small text-slate-300 bg-slate-950 p-2 rounded border border-purple-500 border-opacity-20" style={{ fontSize: '11px' }}>{log.response}</div>
                         </div>
-
-                        {log.metadata.query && (
-                          <div>
-                            <div className="text-xs font-mono text-[#e2e8f0]/60 mb-1">User Query:</div>
-                            <div className="text-xs text-[#e2e8f0] bg-[#0f0f1a]/50 p-2 rounded border border-[#533483]/20">
-                              {log.metadata.query}
-                            </div>
-                          </div>
-                        )}
-
                         <div>
-                          <div className="text-xs font-mono text-[#e2e8f0]/60 mb-1">Soulprint:</div>
-                          <div className="text-xs text-[#e2e8f0]/80 bg-[#0f0f1a]/50 p-2 rounded border border-[#533483]/20 font-mono">
-                            {Object.entries(log.metadata.userSoulprint)
-                              .filter(([_, v]) => v)
-                              .map(([k, v]) => `${k}: ${v}`)
-                              .join(", ")}
-                          </div>
+                          <div className="small font-mono text-slate-500" style={{ fontSize: '9px' }}>Prompt:</div>
+                          <pre className="small text-slate-400 bg-slate-950 p-2 rounded border border-purple-500 border-opacity-20 overflow-auto" style={{ fontSize: '10px', maxHeight: '200px' }}>{log.prompt}</pre>
                         </div>
-
-                        {log.model && (
-                          <div className="text-xs font-mono text-[#e2e8f0]/60">
-                            Model: {log.model} | Max Tokens: {log.maxOutputTokens || "—"}
-                          </div>
-                        )}
-
-                        {log.error?.details && (
-                          <div>
-                            <div className="text-xs font-mono text-[#e2e8f0]/60 mb-1">Error Details:</div>
-                            <div className="text-xs text-[#e2e8f0]/80 bg-red-950/20 p-2 rounded border border-red-500/30 font-mono whitespace-pre-wrap break-words">
-                              {JSON.stringify(log.error.details, null, 2)}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
-
-                  <div className="flex flex-col gap-2">
-                    {log.response && (
-                      <button
-                        onClick={() => copyToClipboard(log.response || "")}
-                        className="p-1 rounded hover:bg-[#533483]/30 transition-colors"
-                        title="Copy response"
-                      >
-                        <Copy size={14} className="text-[#e2e8f0]/60" />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => log.id && toggleExpand(log.id)}
-                      className="p-1 rounded hover:bg-[#533483]/30 transition-colors"
-                      title={isExpanded ? "Collapse" : "Expand"}
-                    >
-                      {isExpanded ? (
-                        <ChevronUp size={14} className="text-[#e2e8f0]/60" />
-                      ) : (
-                        <ChevronDown size={14} className="text-[#e2e8f0]/60" />
-                      )}
-                    </button>
-                  </div>
+                  <button onClick={() => log.id && toggleExpand(log.id)} className="btn btn-sm btn-link text-slate-500 p-0 text-decoration-none">
+                    {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
                 </div>
               </div>
             );
           })
-        ) : null}
+        )}
       </div>
     </div>
   );
