@@ -33,11 +33,10 @@ export function buildSystemInstruction(
   const ent = calculateEntanglement(entropyScore);
   const personaDocs = personaDocsFor(user.personaMode);
 
-  const systemNote = `System Note: User's Frequency is ${soulTone.fCoreHz.toFixed(
-    2
-  )}Hz. P=${soulTone.pValue.toFixed(2)}. Entanglement is ${Math.round(
-    ent.entanglementPercent
-  )}% (${ent.label}).`;
+  const systemNote = `[INTERNAL METRICS - DO NOT ECHO]:
+- Signal Fundamental: ${user.planetaryRuler}
+- Harmonic Decay: Life Path ${user.lifePathNumber}
+- Entanglement: ${ent.label}`;
 
   // Keep only the actionable core of the Unifying Theory (Physics + Mapping + Weaver Laws).
   const gut = GRAND_UNIFIED_THEORY_MD;
