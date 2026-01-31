@@ -648,22 +648,22 @@ function Dashboard() {
   };
 
   return (
-    <div className="min-vh-100 bg-slate-950 text-slate-200 font-sans pb-5 pb-md-0 ps-md-sidebar">
+    <div className="min-vh-100 bg-slate-950 text-slate-200 font-sans pb-5 pb-lg-0 ps-lg-sidebar">
       {isGrimoireModalOpen && selectedAttribute && (
         <GrimoireModal
           selectedAttribute={selectedAttribute}
           onClose={() => setSelectedAttribute(null)}
         />
       )}
-      <div className={`d-md-none d-flex align-items-center justify-content-between p-3 bg-slate-900 bg-opacity-80 backdrop-blur border-bottom border-opacity-20 sticky-top z-40`}>
+      <div className={`d-lg-none d-flex align-items-center justify-content-between p-3 bg-slate-900 bg-opacity-80 backdrop-blur border-bottom border-opacity-20 sticky-top z-40`}>
         <h1 className="font-serif fs-4 text-accent">Tami&apos;s Signal</h1>
         <div className="small font-mono text-slate-500">
           Path {userData?.destinyNumber} • {userData?.zodiacSign}
         </div>
       </div>
 
-      <nav className={`fixed-bottom d-flex align-items-center justify-content-around d-md-flex flex-md-column position-md-fixed top-md-0 start-md-0 h-md-100 w-md-20 pt-md-5 bg-slate-900 border-top border-md-top-0 border-md-end border-opacity-10 z-50`}>
-        <div className="d-none d-md-block mb-4 text-accent animate-pulse-subtle">
+      <nav className={`fixed-bottom d-flex align-items-center justify-content-around d-lg-flex flex-lg-column position-lg-fixed top-lg-0 start-lg-0 h-lg-100 w-lg-20 pt-lg-5 bg-slate-900 border-top border-lg-top-0 border-lg-end border-opacity-10 z-50`}>
+        <div className="d-none d-lg-block mb-4 text-accent animate-pulse-subtle">
           <Radio size={32} />
         </div>
         <NavButton
@@ -1094,11 +1094,20 @@ function Dashboard() {
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             {activeSubTabs.soulprint === "identity" && (
               <>
-                <header className="mb-4">
-                  <h2 className="display-6 font-serif text-white mb-2">
-                    Identity
-                  </h2>
-                  <p className="text-slate-500 small font-mono">SOULPRINT_SIGNATURE • CORE_METRICS</p>
+                <header className="mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="display-6 font-serif text-white mb-2">
+                      Identity
+                    </h2>
+                    <p className="text-slate-500 small font-mono">SOULPRINT_SIGNATURE • CORE_METRICS</p>
+                  </div>
+                  <button
+                    onClick={() => navigate("/soulprint")}
+                    className="btn btn-sm btn-outline-primary rounded-pill font-mono"
+                    style={{ fontSize: '10px' }}
+                  >
+                    RE-TUNE_SIGNAL
+                  </button>
                 </header>
                 <div className="signal-card mb-4 scanline-container">
                   <div className="row g-4 align-items-center">
@@ -1257,13 +1266,22 @@ function Dashboard() {
                   <h2 className="display-6 font-serif text-white">
                     System Profile
                   </h2>
-                  <button
-                    onClick={() => navigate("/soulprint")}
-                    className="btn btn-sm btn-outline-primary rounded-pill font-mono"
-                    style={{ fontSize: '10px' }}
-                  >
-                    RE-TUNE_SIGNAL
-                  </button>
+                  <div className="d-flex gap-2">
+                    <button
+                      onClick={() => navigate("/soulprint")}
+                      className="btn btn-sm btn-outline-primary rounded-pill font-mono"
+                      style={{ fontSize: '10px' }}
+                    >
+                      RE-TUNE_SIGNAL
+                    </button>
+                    <button
+                      onClick={() => logOut()}
+                      className="btn btn-sm btn-outline-danger rounded-pill font-mono"
+                      style={{ fontSize: '10px' }}
+                    >
+                      SIGN_OUT
+                    </button>
+                  </div>
                 </header>
                 <div className="signal-card mb-4">
                   <div className="d-flex align-items-center gap-4 mb-4 pb-4 border-bottom border-slate-800">
@@ -1287,6 +1305,19 @@ function Dashboard() {
                     </div>
                   </div>
                   <div className="row g-3">
+                    <div className="col-12 col-md-6">
+                      <div className="p-3 rounded border border-slate-800 bg-slate-950 bg-opacity-40">
+                        <div className="small font-mono text-slate-600 mb-1" style={{ fontSize: '9px' }}>USER_NAME</div>
+                        <div className="text-white font-mono small">{userData?.name || "ANONYMOUS"}</div>
+                      </div>
+                    </div>
+                    <div className="col-12 col-md-6">
+                      <div className="p-3 rounded border border-slate-800 bg-slate-950 bg-opacity-40">
+                        <div className="small font-mono text-slate-600 mb-1" style={{ fontSize: '9px' }}>EMAIL_RELAY</div>
+                        <div className="text-white font-mono small">{userData?.email || "—"}</div>
+                      </div>
+                    </div>
+                  </div>
                     {userData?.zodiacSign && (
                       <ProfilePillar
                         label="ZODIAC"
@@ -1646,7 +1677,7 @@ const NavButton = ({
     {icon}
     <span className="small font-medium tracking-wide" style={{ fontSize: '10px' }}>{label}</span>
     {active && (
-      <div className="d-none d-md-block position-absolute start-0 h-100" style={{ width: '4px', backgroundColor: 'var(--purple-500)', top: 0 }} />
+      <div className="d-none d-lg-block position-absolute start-0 h-100" style={{ width: '4px', backgroundColor: 'var(--purple-500)', top: 0 }} />
     )}
   </button>
 );
