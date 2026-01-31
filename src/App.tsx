@@ -688,7 +688,7 @@ function Dashboard() {
           active={activeCategory === "soulprint"}
           onClick={() => setActiveCategory("soulprint")}
           icon={<Fingerprint size={24} />}
-          label="System"
+          label="Soulprint"
         />
       </nav>
 
