@@ -174,7 +174,7 @@ export async function generateWeaveReport(profile: UserProfile): Promise<string>
       compound: "STEAM",
       systemStatus: "High Pressure.",
       tamiVoice:
-        'You are pressurized. The Water seeks to drown the Fire; the Fire seeks to boil the Water.',
+        "Structural interference detected. The thermal output is red-lining against the cooling system. High probability of phase-cancellation.",
     });
   }
   if (westernElement === "Earth" && chineseElement === "Metal") {
@@ -182,7 +182,7 @@ export async function generateWeaveReport(profile: UserProfile): Promise<string>
       law: "The Law of Elemental Dignity",
       compound: "ORE",
       systemStatus: "High Density.",
-      tamiVoice: "You are unmovable. A mountain capping a mine.",
+      tamiVoice: "Signal density is approaching a singularity. The structure is non-permeable. Movement is currently a zero-sum equation.",
     });
   }
 
@@ -191,7 +191,7 @@ export async function generateWeaveReport(profile: UserProfile): Promise<string>
     hits.push({
       law: "The Law of Biological Drag",
       systemStatus: "Drag Coefficient High.",
-      tamiVoice: "Your soul is racing, but your biology has the brakes on. Burnout is imminent.",
+      tamiVoice: "The hardware clock-speed is failing to synchronize with the directive. The spirit is attempting to boot from a corrupt sector.",
     });
   }
 
@@ -201,7 +201,7 @@ export async function generateWeaveReport(profile: UserProfile): Promise<string>
       law: "The Law of the Ancestral Echo",
       systemStatus: "Cage Rattle.",
       tamiVoice:
-        "You are a nomad trapped in a grid. The anxiety you feel is just the walls closing in.",
+        "Coordinate mismatch. The nomad-directive is attempting to map a fixed grid. The anxiety is a resonance of the walls.",
     });
   }
 
@@ -210,7 +210,7 @@ export async function generateWeaveReport(profile: UserProfile): Promise<string>
     hits.push({
       law: "The Law of the Carrier",
       systemStatus: "Signal Overheating.",
-      tamiVoice: "Your fractal seed is deep and slow, but your fire is trying to flicker too fast. The result is thermal noise.",
+      tamiVoice: "Thermal runaway detected. The low-frequency seed is being incinerated by high-amplitude surface-noise.",
     });
   }
 
@@ -219,7 +219,7 @@ export async function generateWeaveReport(profile: UserProfile): Promise<string>
     hits.push({
       law: "The Law of Resonance",
       systemStatus: "Structure Combustion.",
-      tamiVoice: "Saturn is trying to build the frame, but the Fire is consuming the blueprint before the ink is dry.",
+      tamiVoice: "The frame is being consumed as it is built. The signal is destroying its own antenna.",
     });
   }
 
