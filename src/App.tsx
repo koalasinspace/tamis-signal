@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import {
   Moon,
@@ -269,6 +269,36 @@ function Dashboard() {
   } | null>(null);
   const isGrimoireModalOpen = selectedAttribute !== null;
 
+  const [weaveReport, setWeaveReport] = useState<string>("");
+  const [weaveLoading, setWeaveLoading] = useState(false);
+  const weaveRunRef = useRef(0);
+
+  useEffect(() => {
+    if (!weaveReport && userData?.weaveReportLatest) {
+      setWeaveReport(userData.weaveReportLatest);
+    }
+  }, [userData?.weaveReportLatest, weaveReport]);
+
+  useEffect(() => {
+    if (!userData || !currentUser) return;
+    const run = ++weaveRunRef.current;
+    
+    setWeaveLoading(true);
+    generateWeaveReport(userData)
+      .then((txt) => {
+        if (weaveRunRef.current !== run) return;
+        setWeaveReport(txt);
+      })
+      .catch(() => {
+        if (weaveRunRef.current !== run) return;
+        setWeaveReport("");
+      })
+      .finally(() => {
+        if (weaveRunRef.current !== run) return;
+        setWeaveLoading(false);
+      });
+  }, [userData, currentUser]);
+
   const themeValues = useMemo(() => getThemeValues(userData?.favoriteColor ?? "purple"), [userData?.favoriteColor]);
   const role = userData?.role ?? "user";
   const soulprintComplete =
@@ -322,16 +352,17 @@ function Dashboard() {
     setGrimoireCategory(category);
     setGrimoireSearch(name);
     setGrimoireFocus({ category, name });
-    setActiveTab("grimoire");
+    setActiveCategory("archives");
+    setActiveSubTabs(prev => ({ ...prev, archives: "grimoire" }));
   };
 
   useEffect(() => {
-    if (activeTab !== "grimoire" || !grimoireFocus) return;
+    if (activeCategory !== "archives" || activeSubTabs.archives !== "grimoire" || !grimoireFocus) return;
     const id = makeGrimoireId(grimoireFocus.category, grimoireFocus.name);
     requestAnimationFrame(() => {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
-  }, [activeTab, grimoireFocus]);
+  }, [activeCategory, activeSubTabs.archives, grimoireFocus]);
 
   useEffect(() => {
     const hasCompleteSoulprint =
