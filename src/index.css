@@ -29,8 +29,14 @@
   /* Atmospheric Variables (to be controlled by theme) */
   --theme-accent: var(--purple-500);
   --theme-accent-rgb: 168, 85, 247;
-  --theme-bg-gradient: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(2, 6, 23, 1) 100%);
+  --theme-bg: var(--slate-950);
+  --theme-bg-rgb: 2, 6, 23;
+  --theme-card-bg: rgba(15, 23, 42, 0.6);
+  --theme-bg-gradient: radial-gradient(circle at 50% 0%, rgba(var(--purple-900-rgb), 0.15) 0%, transparent 50%),
+                       radial-gradient(circle at 0% 100%, rgba(var(--indigo-950-rgb), 0.1) 0%, transparent 40%);
   --theme-border: rgba(168, 85, 247, 0.2);
+  --theme-text: var(--slate-200);
+  --theme-text-muted: var(--slate-500);
 }
 
 body {
@@ -40,12 +46,10 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--slate-950);
-  background-image: 
-    radial-gradient(circle at 50% 0%, rgba(var(--purple-900-rgb), 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 0% 100%, rgba(var(--indigo-950-rgb), 0.1) 0%, transparent 40%);
+  background-color: var(--theme-bg);
+  background-image: var(--theme-bg-gradient);
   background-attachment: fixed;
-  color: var(--slate-200);
+  color: var(--theme-text);
   min-height: 100vh;
 }
 
@@ -71,9 +75,36 @@ h1, h2, h3, h4 {
   -webkit-text-fill-color: transparent;
 }
 
+/* Button Overrides for Visibility */
+.btn-primary {
+  background-color: var(--theme-accent) !important;
+  border-color: var(--theme-accent) !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 12px rgba(var(--theme-accent-rgb), 0.3) !important;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: rgba(var(--theme-accent-rgb), 0.9) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(var(--theme-accent-rgb), 0.4) !important;
+}
+
+.btn-outline-primary {
+  color: var(--theme-accent) !important;
+  border-color: rgba(var(--theme-accent-rgb), 0.5) !important;
+  background-color: transparent !important;
+}
+
+.btn-outline-primary:hover:not(:disabled) {
+  background-color: rgba(var(--theme-accent-rgb), 0.1) !important;
+  border-color: var(--theme-accent) !important;
+  color: var(--theme-accent) !important;
+}
+
 /* Cold Demodulation: Glassmorphism & Cards */
 .signal-card {
-  background: rgba(var(--slate-900-rgb), 0.6);
+  background: var(--theme-card-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--theme-border);

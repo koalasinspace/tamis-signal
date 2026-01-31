@@ -82,9 +82,12 @@ function getThemeValues(colorName: string): {
   accent: string;
   accentRGB: string;
   border: string;
+  bg?: string;
+  bgRGB?: string;
+  cardBg?: string;
 } {
   const normalized = (colorName || "").toLowerCase().trim();
-  const map: Record<string, { accent: string; accentRGB: string; border: string }> = {
+  const map: Record<string, { accent: string; accentRGB: string; border: string; bg?: string; bgRGB?: string; cardBg?: string }> = {
     red: { accent: "#f87171", accentRGB: "248, 113, 113", border: "rgba(248, 113, 113, 0.2)" },
     blue: { accent: "#60a5fa", accentRGB: "96, 165, 250", border: "rgba(96, 165, 250, 0.2)" },
     green: { accent: "#4ade80", accentRGB: "74, 222, 128", border: "rgba(74, 222, 128, 0.2)" },
@@ -97,6 +100,11 @@ function getThemeValues(colorName: string): {
     teal: { accent: "#2dd4bf", accentRGB: "45, 212, 191", border: "rgba(45, 212, 191, 0.2)" },
     cyan: { accent: "#22d3ee", accentRGB: "34, 211, 238", border: "rgba(34, 211, 238, 0.2)" },
     emerald: { accent: "#34d399", accentRGB: "52, 211, 153", border: "rgba(52, 211, 153, 0.2)" },
+    // Theme Presets
+    amber: { accent: "#fbbf24", accentRGB: "251, 191, 36", border: "rgba(251, 191, 36, 0.2)", bg: "#0f172a", bgRGB: "15, 23, 42", cardBg: "rgba(30, 41, 59, 0.6)" },
+    crimson: { accent: "#ef4444", accentRGB: "239, 68, 68", border: "rgba(239, 68, 68, 0.2)", bg: "#110000", bgRGB: "17, 0, 0", cardBg: "rgba(40, 0, 0, 0.6)" },
+    obsidian: { accent: "#818cf8", accentRGB: "129, 140, 248", border: "rgba(129, 140, 248, 0.1)", bg: "#000000", bgRGB: "0, 0, 0", cardBg: "rgba(15, 23, 42, 0.8)" },
+    ghost: { accent: "#94a3b8", accentRGB: "148, 163, 184", border: "rgba(148, 163, 184, 0.2)", bg: "#020617", bgRGB: "2, 6, 23", cardBg: "rgba(15, 23, 42, 0.4)" },
   };
   return map[normalized] ?? map["purple"];
 }
@@ -311,6 +319,9 @@ function Dashboard() {
     root.style.setProperty("--theme-accent", themeValues.accent);
     root.style.setProperty("--theme-accent-rgb", themeValues.accentRGB);
     root.style.setProperty("--theme-border", themeValues.border);
+    if (themeValues.bg) root.style.setProperty("--theme-bg", themeValues.bg);
+    if (themeValues.bgRGB) root.style.setProperty("--theme-bg-rgb", themeValues.bgRGB);
+    if (themeValues.cardBg) root.style.setProperty("--theme-card-bg", themeValues.cardBg);
   }, [themeValues]);
 
   const entropyScore = userData ? estimateEntropyScore(userData) : 50;
@@ -398,6 +409,16 @@ function Dashboard() {
       setDevPingStatus(`Ping failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setDevPingLoading(false);
+    }
+  };
+
+  const handleThemeChange = async (newTheme: string) => {
+    if (!currentUser?.uid || !userData) return;
+    try {
+      await setDoc(doc(db, "users", currentUser.uid), { favoriteColor: newTheme }, { merge: true });
+      setUserData({ ...userData, favoriteColor: newTheme });
+    } catch (err) {
+      console.error("Failed to update theme", err);
     }
   };
 
@@ -1476,9 +1497,18 @@ function Dashboard() {
 
                     <div className="col-12 col-sm-6">
                       <div className="p-3 rounded border border-slate-800 bg-slate-950 bg-opacity-40 h-100">
-                        <div className="small font-mono text-slate-600 mb-2" style={{ fontSize: '9px' }}>FS_PATHS</div>
-                        <div className="small font-mono text-slate-500 break-all" style={{ fontSize: '9px' }}>
-                          /users/{currentUser?.uid ?? "UID"}
+                        <div className="small font-mono text-slate-600 mb-2" style={{ fontSize: '9px' }}>THEME_SELECTOR</div>
+                        <div className="d-flex flex-wrap gap-1">
+                          {["purple", "indigo", "emerald", "amber", "crimson", "obsidian", "ghost"].map(t => (
+                            <button
+                              key={t}
+                              onClick={() => handleThemeChange(t)}
+                              className={`btn btn-sm font-mono p-1 px-2 ${userData?.favoriteColor === t ? "btn-primary" : "btn-outline-primary"}`}
+                              style={{ fontSize: '8px' }}
+                            >
+                              {t.toUpperCase()}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     </div>
