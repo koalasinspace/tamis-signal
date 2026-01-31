@@ -22,9 +22,9 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-purple-50 font-sans flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/40 via-slate-950 to-slate-950" />
-      <div className="relative z-10 w-full">
+    <div className="min-vh-100 bg-slate-950 text-slate-100 font-sans d-flex align-items-center justify-content-center p-4 position-relative overflow-hidden">
+      <div className="position-absolute top-0 start-0 w-100 h-100" style={{ background: 'radial-gradient(circle at top, rgba(147, 51, 234, 0.15), transparent)' }} />
+      <div className="position-relative z-10 w-100">
         <Onboarding
           initial={seed}
           onComplete={async ({ profile, weaveReport }) => {

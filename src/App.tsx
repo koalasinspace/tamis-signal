@@ -648,7 +648,7 @@ function Dashboard() {
   };
 
   return (
-    <div className="min-vh-100 bg-slate-950 text-slate-200 font-sans pb-5 pb-md-0 ps-md-5">
+    <div className="min-vh-100 bg-slate-950 text-slate-200 font-sans pb-5 pb-md-0 ps-md-sidebar">
       {isGrimoireModalOpen && selectedAttribute && (
         <GrimoireModal
           selectedAttribute={selectedAttribute}
