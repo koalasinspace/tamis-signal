@@ -1317,7 +1317,6 @@ function Dashboard() {
                         <div className="text-white font-mono small">{userData?.email || "—"}</div>
                       </div>
                     </div>
-                  </div>
                     {userData?.zodiacSign && (
                       <ProfilePillar
                         label="ZODIAC"
